@@ -19,7 +19,7 @@ import type { LoginInput, RegisterInput } from '@/lib/schemas';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (data: LoginInput) => Promise<void>;
+  login: (data: LoginInput) => Promise<User['role'] | null>;
   register: (data: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -55,9 +55,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, [auth]);
 
-  const login = async (data: LoginInput) => {
-    await signInWithEmailAndPassword(auth, data.email, data.password);
-    // onAuthStateChanged will handle setting the user state
+  const login = async (data: LoginInput): Promise<User['role'] | null> => {
+    const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+    const firebaseUser = userCredential.user;
+    
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        // onAuthStateChanged will handle setting the global user state
+        return userData.role;
+    }
+    
+    // This case should ideally not be reached if registration is enforced
+    await signOut(auth);
+    throw new Error("User profile not found. Please contact support.");
   };
   
   const register = async (data: RegisterInput) => {

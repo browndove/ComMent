@@ -20,11 +20,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 export function LoginForm() {
   const { login } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
@@ -35,9 +38,24 @@ export function LoginForm() {
   });
 
   async function onSubmit(values: LoginInput) {
+    setIsSubmitting(true);
     try {
-      await login(values);
-      // Let the AuthProvider redirect handle the destination
+      const userRole = await login(values);
+      toast({
+        title: 'Login Successful',
+        description: 'Welcome back! Redirecting you to your dashboard...',
+      });
+      
+      // Redirect based on role
+      if (userRole === 'student') {
+        router.push('/student/dashboard');
+      } else if (userRole === 'counselor') {
+        router.push('/counselor/dashboard');
+      } else {
+         // Fallback, though should not be reached if roles are set correctly
+        router.push('/');
+      }
+
     } catch (error: any) {
       console.error(error);
       toast({
@@ -45,6 +63,7 @@ export function LoginForm() {
         title: 'Login Failed',
         description: error.message || 'An unknown error occurred. Please try again.',
       });
+       setIsSubmitting(false);
     }
   }
 
@@ -64,7 +83,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Email Address</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@university.ac.uk" {...field} />
+                    <Input placeholder="name@university.ac.uk" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -77,14 +96,14 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
+                    <Input type="password" placeholder="••••••••" {...field} disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign In
             </Button>
           </form>
