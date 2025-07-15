@@ -18,7 +18,7 @@ import { CardFooter } from "@/components/ui/card";
 
 type Student = {
   id: string;
-  name:string;
+  fullName:string;
   universityId: string;
   lastSession?: string;
   nextSession?: string;
@@ -79,17 +79,23 @@ export default function CounselorStudentsPage() {
   const sortedAndFilteredStudents = useMemo(() => {
      return allStudents
         .filter(student => {
-            const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                  student.universityId.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = selectedStatus === 'all' || student.status.toLowerCase().replace(' ', '-') === selectedStatus;
+            const safeFullName = student.fullName || '';
+            const safeUniversityId = student.universityId || '';
+            const safeStatus = student.status || '';
+            
+            const matchesSearch = safeFullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                  safeUniversityId.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = selectedStatus === 'all' || safeStatus.toLowerCase().replace(' ', '-') === selectedStatus;
             return matchesSearch && matchesStatus;
         })
         .sort((a, b) => {
+            const nameA = a.fullName || '';
+            const nameB = b.fullName || '';
             switch(sortOrder) {
                 case 'name-asc':
-                    return a.name.localeCompare(b.name);
+                    return nameA.localeCompare(nameB);
                 case 'name-desc':
-                    return b.name.localeCompare(a.name);
+                    return nameB.localeCompare(nameA);
                 case 'last-session':
                     if (!a.lastSession) return 1;
                     if (!b.lastSession) return -1;

@@ -13,7 +13,7 @@ import { formatDistanceToNowStrict, parseISO } from 'date-fns';
 
 type Student = {
   id: string;
-  name: string;
+  fullName: string;
   universityId: string;
   lastSession?: string;
   nextSession?: string;
@@ -56,16 +56,16 @@ export function StudentOverviewCard({ student, isSelected, onSelectionChange }: 
         <Checkbox
           checked={isSelected}
           onCheckedChange={(checked) => onSelectionChange(student.id, !!checked)}
-          aria-label={`Select ${student.name}`}
+          aria-label={`Select ${student.fullName}`}
         />
       </div>
       <CardHeader className="flex flex-row items-center gap-4 p-5">
         <Avatar className="h-14 w-14 border">
-          <AvatarImage src={student.avatarUrl} alt={student.name} data-ai-hint={student.aiHint} />
-          <AvatarFallback className="text-xl">{student.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+          <AvatarImage src={student.avatarUrl} alt={student.fullName} data-ai-hint={student.aiHint} />
+          <AvatarFallback className="text-xl">{student.fullName?.split(" ").map(n => n[0]).join("")}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <h3 className="text-lg font-bold truncate">{student.name}</h3>
+          <h3 className="text-lg font-bold truncate">{student.fullName}</h3>
           <p className="text-sm text-muted-foreground">ID: {student.universityId}</p>
         </div>
       </CardHeader>
