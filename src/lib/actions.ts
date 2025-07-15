@@ -94,10 +94,13 @@ export async function getStudentSessions(studentId: string, forCounselor: boolea
 // Get appointments for a specific counselor
 export async function getCounselorAppointments(counselorId: string) {
     try {
-        const q = query(collection(db, "appointments"), where("counselorId", "==", counselorId), orderBy("date", "desc"));
+        const q = query(collection(db, "appointments"), where("counselorId", "==", counselorId));
         const querySnapshot = await getDocs(q);
-        const appointments = querySnapshot.docs.map(doc => serializeFirestoreData(doc));
+        let appointments = querySnapshot.docs.map(doc => serializeFirestoreData(doc));
         
+        // Sort in-memory to avoid needing a composite index
+        appointments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
         const enrichedAppointments = await Promise.all(
             appointments.map(async (apt: any) => {
                 if (apt.studentId) {
