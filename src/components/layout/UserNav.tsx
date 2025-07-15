@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LifeBuoy, LogOut, Settings, User } from 'lucide-react';
 
 export function UserNav() {
   const { user, logout } = useAuth();
@@ -57,13 +58,24 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-             <Link href={profileLink}>Profile</Link>
+             <Link href={profileLink}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>Settings</DropdownMenuItem>
+          <DropdownMenuItem>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+           <DropdownMenuItem>
+            <LifeBuoy className="mr-2 h-4 w-4" />
+            <span>Support</span>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
-          Log out
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
