@@ -1,47 +1,213 @@
 
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AppointmentCard, type Appointment } from "@/components/dashboard/AppointmentCard";
-import { 
-  CalendarCheck, 
-  AlertTriangle, 
-  ListChecks, 
-  PlusCircle, 
-  Loader2, 
-  Users, 
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  CalendarCheck,
+  AlertTriangle,
+  PlusCircle,
+  Loader2,
   Clock,
   NotebookPen,
   FileText,
-  Filter
+  Filter,
+  Search,
+  Calendar,
+  User,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  MoreHorizontal,
+  Eye,
+  Edit3,
+  Trash2,
+  RefreshCw,
+  TrendingUp,
+  Users,
+  Activity,
+  MapPin,
 } from "lucide-react";
-import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { getCounselorAppointments, updateAppointmentStatus } from "@/lib/actions";
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { getCounselorAppointments, updateAppointmentStatus } from '@/lib/actions';
+import type { Appointment } from '@/components/dashboard/AppointmentCard';
 
-export default function CounselorAppointmentsPage() {
+// Enhanced Stats Card Component
+const StatsCard = ({ title, value, icon: Icon, color = "primary", loading = false }: {
+    title: string;
+    value: string | number;
+    icon: React.ElementType;
+    color?: string;
+    loading?: boolean;
+}) => {
+  const colorClasses: { [key: string]: string } = {
+    primary: 'bg-primary',
+    yellow: 'bg-yellow-500',
+    green: 'bg-green-500',
+    purple: 'bg-purple-500',
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">
+          {loading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : value}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+
+// Enhanced Appointment Card Component
+const AppointmentCard = ({ appointment, onUpdateStatus }: { appointment: Appointment; onUpdateStatus: (id: string, status: 'confirmed' | 'cancelled') => void }) => {
+  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
+
+  const getStatusVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+      case 'completed':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  const StatusIcon = useMemo(() => {
+    switch (appointment.status.toLowerCase()) {
+      case 'confirmed': return CheckCircle;
+      case 'pending': return AlertCircle;
+      case 'cancelled': return XCircle;
+      case 'completed': return CheckCircle;
+      default: return AlertCircle;
+    }
+  }, [appointment.status]);
+
+  const handleUpdate = async (status: 'confirmed' | 'cancelled') => {
+      setIsUpdating(true);
+      await onUpdateStatus(appointment.id, status);
+      setIsUpdating(false);
+  };
+
+  return (
+    <Card className="group hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar className="w-12 h-12">
+              <AvatarImage src={appointment.studentAvatarUrl} alt={appointment.studentName} />
+              <AvatarFallback>{appointment.studentName?.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h4 className="font-semibold text-card-foreground">{appointment.studentName}</h4>
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem><Eye className="w-4 h-4 mr-2" />View Details</DropdownMenuItem>
+              <DropdownMenuItem><Edit3 className="w-4 h-4 mr-2" />Edit Notes</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleUpdate('cancelled')} className="text-destructive">
+                <Trash2 className="w-4 h-4 mr-2" />Cancel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4" /><span>{new Date(appointment.date).toLocaleDateString()}</span></div>
+          <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" /><span>{appointment.time}</span></div>
+          <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" /><span>Online</span></div>
+           <div className="flex items-center gap-2">
+            <StatusIcon className="h-4 w-4" />
+            <Badge variant={getStatusVariant(appointment.status)}>
+              {appointment.status}
+            </Badge>
+          </div>
+        </div>
+        {appointment.reason && (
+          <div className="p-3 bg-muted rounded-lg"><p className="text-sm text-muted-foreground italic">&quot;{appointment.reason}&quot;</p></div>
+        )}
+      </CardContent>
+       {appointment.status.toLowerCase() === 'pending' && (
+          <CardFooter className="flex gap-2 pt-2">
+            <Button size="sm" onClick={() => handleUpdate('confirmed')} className="flex-1" disabled={isUpdating}>
+              {isUpdating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+              Confirm
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => handleUpdate('cancelled')} className="flex-1" disabled={isUpdating}>
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+          </CardFooter>
+        )}
+    </Card>
+  );
+};
+
+
+// Quick Actions Component
+const QuickActions = () => (
+  <Card className="bg-gradient-to-r from-primary/10 to-accent/10 lg:col-span-1">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-lg">
+        <Activity className="h-5 w-5 text-primary" />
+        Quick Actions
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="grid grid-cols-2 gap-3">
+      <Button variant="outline" className="justify-start"><PlusCircle className="h-4 w-4 mr-2" />New Session</Button>
+      <Button variant="outline" className="justify-start"><NotebookPen className="h-4 w-4 mr-2" />Add Notes</Button>
+      <Button variant="outline" className="justify-start"><Calendar className="h-4 w-4 mr-2" />View Calendar</Button>
+      <Button variant="outline" className="justify-start"><Users className="h-4 w-4 mr-2" />Student List</Button>
+    </CardContent>
+  </Card>
+);
+
+// Main Component
+export default function CounselorAppointmentsPage() {
   const { user } = useAuth();
-  
+  const { toast } = useToast();
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'All' | 'Pending' | 'Confirmed' | 'History'>('All');
+  const [filter, setFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchAppointments = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
       const result = await getCounselorAppointments(user.uid);
       if (result.error) throw new Error(result.error);
-      const appointments = result.data?.map(a => ({ ...a, id: a.id! })) as Appointment[] || [];
-      setAllAppointments(appointments);
+      setAllAppointments(result.data as Appointment[] || []);
     } catch (err: any) {
       setError(err.message);
       toast({ variant: "destructive", title: "Failed to load appointments", description: err.message });
@@ -49,149 +215,114 @@ export default function CounselorAppointmentsPage() {
       setLoading(false);
     }
   }, [user, toast]);
-
+  
   useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user, fetchData]);
-
-  const handleUpdateStatus = async (id: string, newStatus: 'Confirmed' | 'Cancelled') => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+  
+  const handleUpdateStatus = async (id: string, newStatus: 'confirmed' | 'cancelled') => {
     const originalAppointments = [...allAppointments];
-    setAllAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-    
-    const result = await updateAppointmentStatus(id, newStatus.toLowerCase() as 'confirmed' | 'cancelled');
-    
-    if (result.success) {
-      toast({ title: "Status Updated", description: `Appointment has been ${newStatus.toLowerCase()}.` });
-      await fetchData(); // Refresh data to be sure
+    // Optimistic update
+    setAllAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) } : a));
+
+    const result = await updateAppointmentStatus(id, newStatus);
+    if (!result.success) {
+        toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
+        setAllAppointments(originalAppointments); // Revert on failure
     } else {
-      toast({ title: "Error", description: result.error, variant: 'destructive' });
-      setAllAppointments(originalAppointments); // Revert on error
+        toast({ title: 'Success', description: `Appointment has been ${newStatus}.`});
     }
   };
   
   const filteredAppointments = useMemo(() => {
-    if (filter === 'All') return allAppointments;
-    if (filter === 'Pending') return allAppointments.filter(a => a.status === 'Pending');
-    if (filter === 'Confirmed') return allAppointments.filter(a => a.status === 'Confirmed');
-    if (filter === 'History') return allAppointments.filter(a => ['Completed', 'Cancelled'].includes(a.status));
-    return [];
-  }, [allAppointments, filter]);
-
+    return allAppointments.filter(a => {
+        const statusMatch = filter === 'All' || a.status.toLowerCase() === filter.toLowerCase() || (filter === 'History' && ['completed', 'cancelled'].includes(a.status.toLowerCase()));
+        const searchMatch = !searchTerm || a.studentName?.toLowerCase().includes(searchTerm.toLowerCase());
+        return statusMatch && searchMatch;
+    });
+  }, [allAppointments, filter, searchTerm]);
+  
   const stats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
     return {
-      todaysAppointments: allAppointments.filter(a => a.date === today && a.status === 'Confirmed').length,
-      pendingAppointments: allAppointments.filter(a => a.status === 'Pending').length,
-      confirmedAppointments: allAppointments.filter(a => a.status === 'Confirmed').length,
-      needsNotesCount: allAppointments.filter(a => a.status === 'Completed' && !a.notesAvailable).length,
-    }
+      todaysAppointments: allAppointments.filter(a => a.date === todayStr && a.status.toLowerCase() === 'confirmed').length,
+      pendingAppointments: allAppointments.filter(a => a.status.toLowerCase() === 'pending').length,
+      confirmedAppointments: allAppointments.filter(a => a.status.toLowerCase() === 'confirmed').length,
+      needsNotesCount: allAppointments.filter(a => a.status.toLowerCase() === 'completed' && !(a as any).notesAvailable).length,
+    };
   }, [allAppointments]);
-
+  
   const renderSkeleton = () => (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {[...Array(6)].map((_, i) => (
-            <Card key={i} className="flex flex-col shadow-sm">
-                <CardHeader className="p-4">
-                    <div className="flex items-center gap-3">
-                        <Skeleton className="h-12 w-12 rounded-full" />
-                        <div className="space-y-2">
-                            <Skeleton className="h-4 w-32" />
-                            <Skeleton className="h-3 w-20" />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 space-y-3 flex-grow">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-4 w-40" />
-                </CardContent>
-                <CardFooter className="p-4 pt-2 flex justify-end gap-2">
-                    <Skeleton className="h-9 w-20 rounded-md" />
-                    <Skeleton className="h-9 w-24 rounded-md" />
-                </CardFooter>
-            </Card>
-        ))}
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {[...Array(6)].map((_, i) => (
+        <Card key={i}>
+          <CardHeader><div className="flex items-center gap-3"><Skeleton className="h-12 w-12 rounded-full" /><div className="space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20" /></div></div></CardHeader>
+          <CardContent className="space-y-3"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></CardContent>
+          <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+        </Card>
+      ))}
     </div>
   );
   
-  const renderEmptyState = (title: string, description: string) => (
-      <Card className="col-span-full mt-6 shadow-lg">
-        <CardContent className="py-12 text-center flex flex-col items-center justify-center">
-            <div className="bg-secondary p-6 rounded-full mb-6">
-                <FileText className="h-12 w-12 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-semibold mb-1">{title}</h3>
-            <p className="text-muted-foreground max-w-sm mx-auto">{description}</p>
-        </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Manage Appointments</h1>
-          <p className="text-lg text-muted-foreground">
-              Review, confirm, and track all your student sessions.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Appointments Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Manage your student sessions and track your counseling activities</p>
         </div>
-         <Button asChild size="lg">
-            <Link href="/counselor/notes">
-              <PlusCircle className="mr-2 h-5 w-5"/> New Session Note
-            </Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={fetchAppointments} disabled={loading}><RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />Refresh</Button>
+          <Button size="lg"><PlusCircle className="h-5 w-5 mr-2" />New Session Note</Button>
+        </div>
       </div>
       
+      {/* Error State */}
       {error && (
-         <Card className="bg-destructive/10 border-destructive">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle/> Error Loading Data</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="text-destructive-foreground">{error}</p>
-            </CardContent>
-        </Card>
+        <Card className="bg-destructive/10 border-destructive"><CardContent className="p-4"><div className="flex items-center gap-2 text-destructive"><AlertTriangle className="h-5 w-5" /><span className="font-medium">Error: {error}</span></div></CardContent></Card>
       )}
-
+      
       {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-lg"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Today's Sessions</CardTitle><Clock className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{loading ? <Loader2 className="h-5 w-5 animate-spin"/> : stats.todaysAppointments}</div></CardContent></Card>
-        <Card className="shadow-lg"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Pending Requests</CardTitle><AlertTriangle className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{loading ? <Loader2 className="h-5 w-5 animate-spin"/> : stats.pendingAppointments}</div></CardContent></Card>
-        <Card className="shadow-lg"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Confirmed Sessions</CardTitle><CalendarCheck className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{loading ? <Loader2 className="h-5 w-5 animate-spin"/> : stats.confirmedAppointments}</div></CardContent></Card>
-        <Card className="shadow-lg"><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">Needs Notes</CardTitle><NotebookPen className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{loading ? <Loader2 className="h-5 w-5 animate-spin"/> : stats.needsNotesCount}</div></CardContent></Card>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <StatsCard title="Today's Sessions" value={stats.todaysAppointments} icon={Clock} color="primary" loading={loading} />
+        <StatsCard title="Pending Requests" value={stats.pendingAppointments} icon={AlertTriangle} color="yellow" loading={loading} />
+        <StatsCard title="Confirmed Sessions" value={stats.confirmedAppointments} icon={CalendarCheck} color="green" loading={loading} />
+        <StatsCard title="Needs Notes" value={stats.needsNotesCount} icon={NotebookPen} color="purple" loading={loading} />
+        <QuickActions />
       </div>
-
-      <Card className="shadow-lg">
+      
+      {/* Appointments Section */}
+      <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>All Appointments</CardTitle>
-              <CardDescription>Filter and manage all scheduled sessions.</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                {(['All', 'Pending', 'Confirmed', 'History'] as const).map(f => (
-                    <Button key={f} variant={filter === f ? 'default' : 'outline'} size="sm" onClick={() => setFilter(f)}>
-                        {f}
-                        {f === 'Pending' && stats.pendingAppointments > 0 && <Badge variant="secondary" className="ml-2">{stats.pendingAppointments}</Badge>}
-                    </Button>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div><CardTitle>All Appointments</CardTitle><CardDescription>Filter and manage your scheduled sessions</CardDescription></div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full sm:w-64" /></div>
+              <div className="flex items-center gap-2"><Filter className="h-4 w-4 text-gray-400" />
+                {(['All', 'Pending', 'Confirmed', 'History']).map(f => (
+                  <Button key={f} variant={filter === f ? 'default' : 'outline'} size="sm" onClick={() => setFilter(f)} className="relative">
+                    {f}
+                    {f === 'Pending' && stats.pendingAppointments > 0 && (<Badge variant="destructive" className="ml-2 absolute -top-2 -right-2 px-1.5">{stats.pendingAppointments}</Badge>)}
+                  </Button>
                 ))}
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {loading ? renderSkeleton() : filteredAppointments.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {filteredAppointments.map(apt => (
-                <AppointmentCard key={apt.id} appointment={apt} onUpdateStatus={handleUpdateStatus}/>
-              ))}
+              {filteredAppointments.map(appointment => (<AppointmentCard key={appointment.id} appointment={appointment} onUpdateStatus={handleUpdateStatus} />))}
             </div>
           ) : (
-            !error && renderEmptyState("No Appointments Found", `There are no appointments matching the "${filter}" filter.`)
+            <div className="text-center py-12"><div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center"><FileText className="h-8 w-8 text-muted-foreground" /></div><h3 className="text-lg font-semibold text-foreground mb-2">No appointments found</h3><p className="text-muted-foreground max-w-sm mx-auto">There are no appointments matching your current filter criteria.</p></div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    
