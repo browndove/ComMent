@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -48,7 +47,7 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({
   );
 };
 
-// SidebarRail component
+// SidebarRail component with Japanese styling
 const SidebarRail = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -58,8 +57,16 @@ const SidebarRail = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        'fixed inset-y-0 left-0 z-30 h-full bg-sidebar-background transition-all duration-300 ease-in-out',
-        isOpen ? 'w-64' : 'w-16',
+        'fixed inset-y-0 left-0 z-30 h-full transition-all duration-500 ease-out',
+        // Japanese-inspired background with subtle gradient
+        'bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800',
+        // Traditional Japanese paper texture effect
+        'before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0.02)_1px,transparent_1px)] before:bg-[length:8px_8px]',
+        // Subtle border with traditional color
+        'border-r border-slate-200/60 dark:border-slate-700/60',
+        // Soft shadow for depth
+        'shadow-[4px_0_20px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_20px_rgba(0,0,0,0.2)]',
+        isOpen ? 'w-72' : 'w-20',
         className
       )}
       {...props}
@@ -68,7 +75,7 @@ const SidebarRail = React.forwardRef<
 });
 SidebarRail.displayName = 'SidebarRail';
 
-// SidebarInset component
+// SidebarInset component with smooth transitions
 const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -78,8 +85,9 @@ const SidebarInset = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        'transition-all duration-300 ease-in-out flex flex-col h-screen',
-        isOpen ? 'md:pl-64' : 'md:pl-16',
+        'transition-all duration-500 ease-out flex flex-col h-screen',
+        // Smooth margin transition for bento grid layout
+        isOpen ? 'md:pl-72' : 'md:pl-20',
         className
       )}
       {...props}
@@ -88,8 +96,7 @@ const SidebarInset = React.forwardRef<
 });
 SidebarInset.displayName = 'SidebarInset';
 
-
-// Tooltip wrapper for sidebar items
+// Japanese-styled tooltip wrapper
 export interface SidebarTooltipProps {
   children: React.ReactNode;
   label: string;
@@ -106,14 +113,24 @@ export const SidebarTooltip: React.FC<SidebarTooltipProps> = ({
   }
 
   return (
-    <Tooltip delayDuration={0}>
+    <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="right" className="bg-sidebar-primary text-sidebar-primary-foreground">
-        <p>{label}</p>
+      <TooltipContent 
+        side="right" 
+        className={cn(
+          "bg-slate-800 text-slate-50 border border-slate-700",
+          // Japanese-inspired rounded corners
+          "rounded-xl px-3 py-2",
+          // Subtle shadow for floating effect
+          "shadow-lg shadow-slate-900/20",
+          // Smooth animation
+          "animate-in fade-in-0 zoom-in-95 duration-200"
+        )}
+      >
+        <p className="text-sm font-medium">{label}</p>
       </TooltipContent>
     </Tooltip>
   );
 };
-
 
 export { SidebarRail, SidebarInset };
