@@ -18,6 +18,7 @@ import { format, parseISO } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { AppointmentsChart } from '@/components/counselor/AppointmentsChart';
+import { ScheduleCalendar } from '@/components/counselor/ScheduleCalendar';
 import { cn } from '@/lib/utils';
 
 type Student = {
@@ -50,7 +51,7 @@ export default function CounselorDashboardPage() {
       if (appointmentsResult.error) throw new Error(appointmentsResult.error);
       if (studentsResult.error) throw new Error(studentsResult.error);
 
-      setAppointments(appointmentsResult.data?.map(a => ({...a, id: a.id! })) as Appointment[] || []);
+      setAppointments(appointmentsResult.data as Appointment[] || []);
       setAssignedStudents(studentsResult.data as Student[] || []);
     } catch (err: any) {
       setError(err.message);
@@ -66,10 +67,10 @@ export default function CounselorDashboardPage() {
     }
   }, [user, fetchData]);
 
-  const pendingAppointments = appointments.filter(a => a.status === 'Pending');
-  const upcomingSessions = appointments.filter(a => a.status === 'Confirmed' && new Date(a.date) >= new Date());
+  const pendingAppointments = appointments.filter(a => a.status.toLowerCase() === 'pending');
+  const upcomingSessions = appointments.filter(a => a.status.toLowerCase() === 'confirmed' && new Date(a.date) >= new Date());
   const nextSession = upcomingSessions.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
-  const notesNeededCount = appointments.filter(a => a.status === 'Completed' && !a.notesAvailable).length;
+  const notesNeededCount = appointments.filter(a => a.status.toLowerCase() === 'completed' && !(a as any).notesAvailable).length;
 
   const StatCard = ({ title, value, icon: Icon }: { 
     title: string, 
@@ -81,7 +82,7 @@ export default function CounselorDashboardPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         </CardHeader>
         <CardContent>
-            <div className="text-4xl font-bold">{value}</div>
+            <div className="text-4xl font-bold">{loading ? <Loader2 className="h-6 w-6 animate-spin" /> : value}</div>
         </CardContent>
     </Card>
   );
@@ -96,6 +97,7 @@ export default function CounselorDashboardPage() {
           </div>
           <Skeleton className="h-10 w-48" />
         </div>
+        <Skeleton className="h-[500px] w-full rounded-xl" />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Skeleton className="h-28 rounded-xl" />
           <Skeleton className="h-28 rounded-xl" />
@@ -136,6 +138,9 @@ export default function CounselorDashboardPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Schedule Calendar */}
+      <ScheduleCalendar appointments={appointments} />
 
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
