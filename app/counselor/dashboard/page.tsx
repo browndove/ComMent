@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 type Student = {
   id: string;
-  name: string;
+  fullName: string;
   universityId: string;
   avatarUrl?: string;
   aiHint?: string;
@@ -51,7 +51,7 @@ export default function CounselorDashboardPage() {
       if (studentsResult.error) throw new Error(studentsResult.error);
 
       setAppointments(appointmentsResult.data?.map(a => ({...a, id: a.id! })) as Appointment[] || []);
-      setAssignedStudents(studentsResult.data || []);
+      setAssignedStudents(studentsResult.data as Student[] || []);
     } catch (err: any) {
       setError(err.message);
       toast({ variant: 'destructive', title: "Failed to load dashboard", description: err.message });
@@ -218,11 +218,11 @@ export default function CounselorDashboardPage() {
               {assignedStudents.slice(0, 4).map(student => (
                 <div key={student.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-secondary transition-colors">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={student.avatarUrl} alt={student.name} data-ai-hint={student.aiHint} />
-                    <AvatarFallback className="text-lg">{student.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+                    <AvatarImage src={student.avatarUrl} alt={student.fullName} data-ai-hint={student.aiHint} />
+                    <AvatarFallback className="text-lg">{student.fullName.split(" ").map(n => n[0]).join("")}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="font-semibold text-lg">{student.name}</p>
+                    <p className="font-semibold text-lg">{student.fullName}</p>
                     <p className="text-sm text-muted-foreground">ID: {student.universityId}</p>
                   </div>
                   <Button variant="ghost" size="sm" asChild>
