@@ -292,20 +292,24 @@ export async function sendMessageToAi(
     // Fetch previous messages for context
     const messagesQuery = query(
       collection(conversationRef, 'messages'),
-      orderBy('createdAt', 'asc'),
-      limit(10) // Get last 10 messages for context window
+      orderBy('createdAt', 'desc'),
+      limit(10) // Get last 10 messages for context window, newest first
     );
     const messagesSnapshot = await getDocs(messagesQuery);
-    const history: HistoryItem[] = [];
-    messagesSnapshot.docs.forEach(doc => {
-        // We need pairs of user/model messages. Assuming they are interleaved.
-        const data = doc.data();
-        if (data.sender === 'user') {
-            history.push({ user: data.text, model: '' });
-        } else if (data.sender === 'ai' && history.length > 0) {
-            history[history.length - 1].model = data.text;
+    
+    // Reverse the docs to get them in chronological order
+    const orderedMessages = messagesSnapshot.docs.reverse().map(doc => doc.data());
+
+    // Build history by pairing user and model messages
+    const history: HistoryItem[] = orderedMessages.reduce((acc: HistoryItem[], msg, index) => {
+        if (msg.sender === 'user') {
+            const nextMsg = orderedMessages[index + 1];
+            if (nextMsg && nextMsg.sender === 'ai') {
+                acc.push({ user: msg.text, model: nextMsg.text });
+            }
         }
-    });
+        return acc;
+    }, []);
 
     // Call Genkit flow
     const aiResponse = await chat({ message, history });
