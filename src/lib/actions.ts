@@ -209,7 +209,8 @@ export async function getCounselors() {
 export async function getUserConversations(userId: string) {
     try {
         const q = query(
-            collection(db, 'users', userId, 'conversations'),
+            collection(db, 'conversations'),
+            where('userId', '==', userId),
             orderBy('createdAt', 'desc'),
             limit(20)
         );
@@ -228,7 +229,13 @@ export async function getUserConversations(userId: string) {
 // Get messages from a specific AI conversation
 export async function getConversationMessages(conversationId: string, userId: string) {
     try {
-        const conversationRef = doc(db, 'users', userId, 'conversations', conversationId);
+        const conversationRef = doc(db, 'conversations', conversationId);
+        // Security check: Make sure the user is allowed to access this conversation
+        const conversationSnap = await getDoc(conversationRef);
+        if (!conversationSnap.exists() || conversationSnap.data().userId !== userId) {
+            return { error: 'Conversation not found or access denied.' };
+        }
+
         const q = query(
             collection(conversationRef, 'messages'),
             orderBy('createdAt', 'asc')
@@ -254,21 +261,21 @@ export async function sendMessageToAi(
   try {
     let convoId = conversationId;
     let newConversationId: string | undefined = undefined;
-    const userConversationCollection = collection(db, 'users', userId, 'conversations');
+    const conversationCollection = collection(db, 'conversations');
     let conversationRef;
 
     // If no conversationId, create a new conversation
     if (!convoId) {
-      const newConvo = await addDoc(userConversationCollection, {
-        title: message.substring(0, 40), // Use first 40 chars as title
+      const newConvo = await addDoc(conversationCollection, {
+        title: message.substring(0, 40) + (message.length > 40 ? '...' : ''),
         createdAt: serverTimestamp(),
         userId: userId,
       });
       convoId = newConvo.id;
       newConversationId = convoId;
-      conversationRef = doc(userConversationCollection, convoId);
+      conversationRef = doc(conversationCollection, convoId);
     } else {
-      conversationRef = doc(userConversationCollection, convoId);
+      conversationRef = doc(conversationCollection, convoId);
     }
     
     // Fetch previous messages for context
