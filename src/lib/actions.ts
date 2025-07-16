@@ -126,6 +126,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'co
   try {
     const appointmentRef = doc(db, 'appointments', appointmentId);
     await updateDoc(appointmentRef, { status: status, modifiedAt: serverTimestamp() });
+    revalidatePath('/counselor/appointments');
     return { success: true };
   } catch (error: any) {
     console.error("Error updating appointment status:", error);
@@ -211,14 +212,22 @@ export async function getUserConversations(userId: string) {
         const q = query(
             collection(db, 'conversations'),
             where('userId', '==', userId),
-            orderBy('createdAt', 'desc'),
             limit(20)
         );
         const querySnapshot = await getDocs(q);
-        const conversations = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            title: doc.data().title || 'Untitled Chat',
-        }));
+        
+        const conversations = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                title: data.title || 'Untitled Chat',
+                createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : new Date(0).toISOString()
+            };
+        });
+
+        // Sort in code to avoid composite index
+        conversations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
         return { data: conversations };
     } catch (error: any) {
         console.error('Error fetching user conversations:', error);
