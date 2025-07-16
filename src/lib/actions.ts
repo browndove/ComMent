@@ -19,8 +19,9 @@ import {
 } from 'firebase/firestore';
 import type { RequestAppointmentInput } from './schemas';
 import type { User } from './types';
-import { chat, type HistoryItem } from '@/ai/flows/assistant-flow';
+import { chat, type AssistantInput } from '@/ai/flows/assistant-flow';
 import { revalidatePath } from 'next/cache';
+import type {Message} from 'genkit/generate';
 
 
 // Helper to serialize Firestore data, converting Timestamps to ISO strings
@@ -293,23 +294,14 @@ export async function sendMessageToAi(
     const messagesQuery = query(
       collection(conversationRef, 'messages'),
       orderBy('createdAt', 'desc'),
-      limit(10) // Get last 10 messages for context window, newest first
+      limit(20) 
     );
     const messagesSnapshot = await getDocs(messagesQuery);
     
-    // Reverse the docs to get them in chronological order
-    const orderedMessages = messagesSnapshot.docs.reverse().map(doc => doc.data());
-
-    // Build history by pairing user and model messages
-    const history: HistoryItem[] = orderedMessages.reduce((acc: HistoryItem[], msg, index) => {
-        if (msg.sender === 'user') {
-            const nextMsg = orderedMessages[index + 1];
-            if (nextMsg && nextMsg.sender === 'ai') {
-                acc.push({ user: msg.text, model: nextMsg.text });
-            }
-        }
-        return acc;
-    }, []);
+    const history: Message[] = messagesSnapshot.docs.reverse().map(doc => {
+      const data = doc.data();
+      return { role: data.sender === 'user' ? 'user' : 'model', content: data.text };
+    });
 
     // Call Genkit flow
     const aiResponse = await chat({ message, history });
