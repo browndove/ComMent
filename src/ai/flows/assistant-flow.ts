@@ -12,12 +12,18 @@ import { generate, type Message } from 'genkit';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
-  content: z.string(),
+  content: z.array(z.object({ text: z.string() })),
 });
+
 
 const AssistantInputSchema = z.object({
   message: z.string(),
-  history: z.array(MessageSchema).optional(),
+  history: z.array(
+      z.object({
+        role: z.enum(['user', 'model']),
+        content: z.string(),
+    })
+  ).optional(),
 });
 export type AssistantInput = z.infer<typeof AssistantInputSchema>;
 

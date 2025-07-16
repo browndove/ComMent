@@ -216,7 +216,7 @@ export async function getUserConversations(userId: string) {
         );
         const querySnapshot = await getDocs(q);
         
-        const conversations = querySnapshot.docs.map(doc => {
+        let conversations = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
