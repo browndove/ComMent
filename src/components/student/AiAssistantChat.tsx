@@ -55,10 +55,13 @@ export function AiAssistantChat({ conversationId, initialMessages }: AiAssistant
   });
   const { formState, register, handleSubmit, reset } = form;
 
+  // This effect ensures that if the parent component passes new initialMessages
+  // (e.g., by navigating to a different conversation), the state is updated.
   useEffect(() => {
     setMessages(initialMessages);
     setCurrentConversationId(conversationId);
   }, [initialMessages, conversationId]);
+
 
   useEffect(() => {
     // Scroll to bottom when new messages are added
