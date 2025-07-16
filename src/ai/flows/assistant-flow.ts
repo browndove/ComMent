@@ -8,7 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import {generate} from 'genkit/generate';
+import { generate, type Message } from 'genkit';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -51,7 +51,7 @@ const assistantFlow = ai.defineFlow(
     const { output } = await generate({
       model: 'googleai/gemini-1.5-flash-latest',
       prompt: message,
-      history: history,
+      history: history as Message[],
       config: {
         systemPrompt,
       },

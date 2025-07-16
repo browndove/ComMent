@@ -21,7 +21,7 @@ import type { RequestAppointmentInput } from './schemas';
 import type { User } from './types';
 import { chat, type AssistantInput } from '@/ai/flows/assistant-flow';
 import { revalidatePath } from 'next/cache';
-import type {Message} from 'genkit/generate';
+import type { Message } from 'genkit';
 
 
 // Helper to serialize Firestore data, converting Timestamps to ISO strings
@@ -213,7 +213,6 @@ export async function getUserConversations(userId: string) {
         const q = query(
             collection(db, 'conversations'),
             where('userId', '==', userId),
-            limit(20)
         );
         const querySnapshot = await getDocs(q);
         
@@ -229,7 +228,7 @@ export async function getUserConversations(userId: string) {
         // Sort in code to avoid composite index
         conversations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        return { data: conversations };
+        return { data: conversations.slice(0, 20) };
     } catch (error: any) {
         console.error('Error fetching user conversations:', error);
         return { error: 'Failed to fetch conversation history.' };
