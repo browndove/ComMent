@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -66,7 +67,7 @@ const SidebarRail = React.forwardRef<
         'border-r border-slate-200/60 dark:border-slate-700/60',
         // Soft shadow for depth
         'shadow-[4px_0_20px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_20px_rgba(0,0,0,0.2)]',
-        isOpen ? 'w-72' : 'w-20',
+        isOpen ? 'w-64' : 'w-20',
         className
       )}
       {...props}
@@ -87,7 +88,7 @@ const SidebarInset = React.forwardRef<
       className={cn(
         'transition-all duration-500 ease-out flex flex-col h-screen',
         // Smooth margin transition for bento grid layout
-        isOpen ? 'md:pl-72' : 'md:pl-20',
+        isOpen ? 'md:pl-64' : 'md:pl-20',
         className
       )}
       {...props}

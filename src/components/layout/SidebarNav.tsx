@@ -172,7 +172,7 @@ export function SidebarNav({ navItems, userRole, isMobile = false }: SidebarNavP
         'before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0.02)_1px,transparent_1px)] before:bg-[length:8px_8px]',
         'border-r border-slate-200/60 dark:border-slate-700/60',
         'shadow-[4px_0_20px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_20px_rgba(0,0,0,0.2)]',
-        isOpen ? 'w-72' : 'w-20'
+        isOpen ? 'w-64' : 'w-20'
       )}
     >
       {renderContent()}

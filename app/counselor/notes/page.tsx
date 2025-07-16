@@ -1,10 +1,9 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Search, PlusCircle, FileText, Loader2, AlertTriangle } from "lucide-react";
+import { MessageSquare, Search, Plus, FileText, Loader2, AlertTriangle, Calendar, Clock, User } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,94 +66,135 @@ export default function CounselorNotesPage() {
   );
   
   const renderSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
       {[...Array(6)].map((_, i) => (
-         <Card key={i} className="flex flex-col">
-            <CardHeader>
-                <Skeleton className="h-5 w-3/5" />
-                <Skeleton className="h-3 w-2/5" />
-            </CardHeader>
-            <CardContent className="flex-grow space-y-2">
-                 <Skeleton className="h-4 w-full" />
-                 <Skeleton className="h-4 w-full" />
-                 <Skeleton className="h-4 w-4/5" />
-            </CardContent>
-            <CardFooter>
-                 <Skeleton className="h-10 w-full" />
-            </CardFooter>
-         </Card>
+        <Card key={i} className="border-l-4 border-l-slate-200">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+              <Skeleton className="h-9 w-28" />
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Session Notes</h1>
-          <p className="text-muted-foreground">Access and manage your confidential session notes.</p>
-        </div>
-        <div className="flex gap-2 items-center w-full md:w-auto">
-          <div className="relative flex-1 md:flex-initial md:w-64">
-            <Input 
-              type="search" 
-              placeholder="Search by student or date..." 
-              className="pl-10" 
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900 mb-2">Session Notes</h1>
+              <p className="text-slate-600">Confidential session documentation and records</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input 
+                  type="search" 
+                  placeholder="Search notes..." 
+                  className="pl-10 w-80 bg-white border-slate-200 focus:border-slate-400" 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white">
+                <Link href="/counselor/students">
+                  <Plus className="mr-2 h-4 w-4" /> New Note
+                </Link>
+              </Button>
+            </div>
           </div>
-          <Button asChild>
-            <Link href="/counselor/students">
-              <PlusCircle className="mr-2 h-4 w-4" /> New Note
-            </Link>
-          </Button>
         </div>
-      </div>
-      
-      {error && (
-        <Card className="bg-destructive/10 border-destructive shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle/> Error</CardTitle>
-          </CardHeader>
-          <CardContent><p className="text-destructive-foreground">{error}</p></CardContent>
-        </Card>
-      )}
 
-      {loading ? (
-        renderSkeleton()
-      ) : filteredNotes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredNotes.map(note => (
-            <Card key={note.id} className="hover:shadow-xl transition-shadow duration-300 flex flex-col bg-card">
-              <CardHeader>
-                <CardTitle>{note.studentName}</CardTitle>
-                <CardDescription>Session: {note.sessionDate}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <p className="text-sm text-muted-foreground line-clamp-3 italic">&quot;{note.summaryPreview}&quot;</p>
-              </CardContent>
-              <CardFooter className="border-t pt-4 flex flex-col items-start gap-2">
-                <Button asChild className="w-full">
-                  <Link href={`/counselor/sessions/${note.sessionId}/notes`}>
-                    <FileText className="mr-2 h-4 w-4" /> View/Edit Note
-                  </Link>
-                </Button>
-                 <p className="text-xs text-muted-foreground w-full text-right">Last updated: {note.lastUpdated}</p>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="shadow-lg">
-          <CardContent className="pt-6 text-center flex flex-col items-center justify-center p-12">
-            <Image src="https://placehold.co/300x200.png" alt="No notes found" width={300} height={200} className="mx-auto mb-4 rounded-xl" data-ai-hint="empty notebook illustration" />
-            <h3 className="text-xl font-semibold">No Notes Found</h3>
-            <p className="text-muted-foreground mt-2 max-w-sm">Create a new note for a completed session via the student list to get started.</p>
-          </CardContent>
-        </Card>
-      )}
+        {/* Error State */}
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Error loading notes</span>
+              </div>
+              <p className="text-red-600 mt-1">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Content */}
+        {loading ? (
+          renderSkeleton()
+        ) : filteredNotes.length > 0 ? (
+          <div className="space-y-4">
+            {filteredNotes.map(note => (
+              <Card key={note.id} className="bg-white border-slate-200 hover:shadow-md transition-all duration-200 border-l-4 border-l-blue-500">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-4 mb-3">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-slate-500" />
+                          <h3 className="font-medium text-slate-900">{note.studentName}</h3>
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <Calendar className="h-4 w-4" />
+                          <span className="text-sm">{note.sessionDate}</span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-slate-600 text-sm leading-relaxed mb-4 line-clamp-2">
+                        {note.summaryPreview}
+                      </p>
+                      
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <Clock className="h-3 w-3" />
+                        <span>Last updated: {note.lastUpdated}</span>
+                      </div>
+                    </div>
+                    
+                    <Button asChild variant="outline" className="ml-6 border-slate-200 hover:bg-slate-50">
+                      <Link href={`/counselor/sessions/${note.sessionId}/notes`}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        View Note
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="bg-white border-slate-200">
+            <CardContent className="text-center py-16">
+              <div className="mx-auto w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                <FileText className="h-8 w-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-900 mb-2">No session notes found</h3>
+              <p className="text-slate-600 mb-6 max-w-md mx-auto">
+                {searchTerm ? 
+                  "No notes match your search criteria. Try adjusting your search terms." :
+                  "Session notes will appear here once you complete sessions with students."
+                }
+              </p>
+              <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white">
+                <Link href="/counselor/students">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create First Note
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
