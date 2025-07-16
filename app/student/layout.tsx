@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from "@/components/layout/Header";
@@ -45,7 +46,9 @@ export default function StudentLayout({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <SidebarNav navItems={studentNavItems} userRole="student" />
+      <div className="hidden md:block">
+        <SidebarNav navItems={studentNavItems} userRole="student" />
+      </div>
       <SidebarRail />
       <SidebarInset>
         <Header />

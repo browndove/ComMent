@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from "@/components/layout/Header";
@@ -45,7 +46,9 @@ export default function CounselorLayout({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <SidebarNav navItems={counselorNavItems} userRole="counselor" />
+      <div className="hidden md:block">
+        <SidebarNav navItems={counselorNavItems} userRole="counselor" />
+      </div>
       <SidebarRail />
       <SidebarInset>
         <Header />
