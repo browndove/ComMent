@@ -327,6 +327,7 @@ export async function sendMessageToAi(
     // Revalidate the path if a new conversation was created
     if(newConversationId) {
         revalidatePath('/student/ai-assistant');
+        revalidatePath(`/student/ai-assistant/${newConversationId}`);
     }
 
     return {
