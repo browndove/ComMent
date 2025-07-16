@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarPlus, Bot, BookOpen, ClipboardList, UserCircle, Activity, Smile, ArrowRight } from 'lucide-react';
+import { CalendarPlus, Bot, BookOpen, UserCircle, ArrowRight, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -21,13 +21,14 @@ const upcomingAppointment = {
 export default function StudentDashboardPage() {
   const { user } = useAuth(); // Get user from AuthContext
 
-  const FeatureCard = ({ title, description, href, icon: Icon, tag, bgColorClass }: {
+  const FeatureCard = ({ title, description, href, icon: Icon, tag, bgColorClass, children }: {
     title: string,
-    description: string,
+    description?: string,
     href: string,
     icon: React.ElementType,
     tag?: string,
-    bgColorClass?: string
+    bgColorClass?: string,
+    children?: React.ReactNode
   }) => (
      <Card className={cn("group relative flex flex-col justify-between overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1", bgColorClass)}>
         <CardHeader>
@@ -39,8 +40,9 @@ export default function StudentDashboardPage() {
             </div>
             <CardTitle className="text-2xl font-bold text-white">{title}</CardTitle>
         </CardHeader>
-        <CardContent>
-            <p className="text-white/80">{description}</p>
+        <CardContent className="flex-1">
+            {description && <p className="text-white/80">{description}</p>}
+            {children}
         </CardContent>
         <CardFooter>
              <Button asChild variant="secondary" className="mt-4 bg-white/90 text-primary hover:bg-white w-full">
@@ -91,67 +93,46 @@ export default function StudentDashboardPage() {
 
         {/* Upcoming Appointment */}
         <div className="md:col-span-1">
-             <Card className="flex flex-col h-full">
-                <CardHeader>
-                    <CardTitle>Upcoming Session</CardTitle>
-                    <CardDescription>Your next scheduled appointment.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col items-center justify-center text-center">
+             <FeatureCard 
+                title="Upcoming Session"
+                href="/student/sessions"
+                icon={Calendar}
+                bgColorClass="bg-gradient-to-br from-purple-500 to-indigo-700"
+              >
+                 <div className="text-white/80 h-full flex flex-col items-center justify-center text-center">
                     {upcomingAppointment ? (
                         <>
-                         <p className="font-semibold">{upcomingAppointment.counselor}</p>
-                         <p className="text-muted-foreground text-sm">{upcomingAppointment.date}</p>
-                         <p className="text-muted-foreground text-sm">{upcomingAppointment.time} • {upcomingAppointment.type}</p>
+                         <p className="font-semibold text-lg">{upcomingAppointment.counselor}</p>
+                         <p className="text-sm">{upcomingAppointment.date}</p>
+                         <p className="text-sm">{upcomingAppointment.time} • {upcomingAppointment.type}</p>
                         </>
                     ) : (
-                        <p className="text-muted-foreground">No upcoming appointments.</p>
+                        <p>No upcoming appointments.</p>
                     )}
-                </CardContent>
-                <CardFooter>
-                    <Button asChild variant="outline" className="w-full">
-                        <Link href="/student/sessions">View All Sessions</Link>
-                    </Button>
-                </CardFooter>
-            </Card>
+                 </div>
+              </FeatureCard>
         </div>
 
         {/* Resources Card */}
         <div className="md:col-span-1">
-             <Card className="flex flex-col h-full">
-                <CardHeader>
-                    <CardTitle>Resource Library</CardTitle>
-                    <CardDescription>Explore articles, tools, and guides.</CardDescription>
-                </CardHeader>
-                 <CardContent className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-secondary rounded-lg">
-                    <div className="p-3 bg-primary/10 rounded-full mb-2">
-                        <BookOpen className="h-8 w-8 text-primary"/>
-                    </div>
-                    <p className="text-muted-foreground text-sm">Find resources to support your mental wellness journey.</p>
-                </CardContent>
-                <CardFooter>
-                    <Button asChild className="w-full">
-                        <Link href="/student/resources">Explore Resources</Link>
-                    </Button>
-                </CardFooter>
-            </Card>
+             <FeatureCard 
+                title="Resource Library"
+                description="Explore articles, tools, and guides to support your mental wellness journey."
+                href="/student/resources"
+                icon={BookOpen}
+                bgColorClass="bg-gradient-to-br from-teal-500 to-cyan-700"
+            />
         </div>
 
         {/* Profile Card */}
         <div className="md:col-span-1">
-            <Card className="flex flex-col h-full">
-                <CardHeader>
-                    <CardTitle>My Profile</CardTitle>
-                    <CardDescription>Manage your information.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col items-center justify-center text-center">
-                     <p className="text-muted-foreground text-sm">Keep your contact details up to date for seamless communication.</p>
-                </CardContent>
-                <CardFooter>
-                    <Button asChild variant="outline" className="w-full">
-                        <Link href="/student/profile">Update Profile</Link>
-                    </Button>
-                </CardFooter>
-            </Card>
+            <FeatureCard 
+                title="My Profile"
+                description="Keep your contact details up to date for seamless communication."
+                href="/student/profile"
+                icon={UserCircle}
+                bgColorClass="bg-gradient-to-br from-orange-500 to-rose-600"
+            />
         </div>
 
        </div>
