@@ -36,6 +36,17 @@ export default function CounselorDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -76,32 +87,38 @@ export default function CounselorDashboardPage() {
     value: string | number, 
     icon: React.ElementType
   }) => (
-    <Card className="shadow-sm hover:shadow-lg transition-shadow">
-        <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <div className="text-4xl font-bold">{loading ? <Loader2 className="h-6 w-6 animate-spin" /> : value}</div>
-        </CardContent>
+    <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Icon className="h-4 w-4 text-primary" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl md:text-3xl font-bold">
+          {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : value}
+        </div>
+      </CardContent>
     </Card>
   );
-  
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <Skeleton className="h-8 w-48 mb-2" />
             <Skeleton className="h-4 w-64" />
           </div>
           <Skeleton className="h-10 w-48" />
         </div>
-        <Skeleton className="h-[500px] w-full rounded-xl" />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-[350px] w-full rounded-xl" />
+        <div className="grid gap-4 sm:gap-6 grid-cols-2 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-28 rounded-xl" />
+          ))}
         </div>
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 auto-rows-fr">
           <Skeleton className="lg:col-span-2 h-96 rounded-xl" />
@@ -115,129 +132,185 @@ export default function CounselorDashboardPage() {
   }
 
   if (error) {
-    return <Card className="bg-destructive/10 border-destructive text-center p-8">
-      <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-      <h3 className="text-xl font-bold text-destructive-foreground">Dashboard Error</h3>
-      <p className="text-destructive-foreground/90">{error}</p>
-      <Button variant="destructive" onClick={fetchData} className="mt-4">Try Again</Button>
-    </Card>;
+    return (
+      <div className="p-4">
+        <Card className="bg-destructive/10 border-destructive text-center p-8">
+          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+          <h3 className="text-xl font-bold text-destructive-foreground">Dashboard Error</h3>
+          <p className="text-destructive-foreground/90 mb-4">{error}</p>
+          <Button variant="destructive" onClick={fetchData} className="mt-4">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Try Again
+          </Button>
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 p-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome, {user?.fullName?.split(' ')[0]}</h1>
-          <p className="text-muted-foreground">Here&apos;s a snapshot of your counseling activities.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Welcome, {user?.fullName?.split(' ')[0]}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Here's a snapshot of your counseling activities</p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/counselor/appointments">
-            <Calendar className="mr-2 h-4 w-4" /> Manage All Appointments
+            <Calendar className="mr-2 h-4 w-4" /> 
+            <span className="hidden sm:inline">Manage All Appointments</span>
+            <span className="inline sm:hidden">Appointments</span>
           </Link>
         </Button>
       </div>
 
-      {/* Schedule Calendar */}
-      <ScheduleCalendar appointments={appointments} />
+      {/* Schedule Calendar - Mobile optimized */}
+      <div className="rounded-xl border bg-card shadow-sm">
+        <ScheduleCalendar 
+          appointments={appointments} 
+          isMobile={isMobile}
+        />
+      </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats Grid - Responsive layout */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-2 md:grid-cols-4">
         <StatCard 
           title="Total Students" 
           value={assignedStudents.length} 
           icon={Users} 
         />
-        <StatCard title="Upcoming Sessions" value={upcomingSessions.length} icon={CalendarCheck} />
-        <StatCard title="Pending Requests" value={pendingAppointments.length} icon={AlertTriangle} />
-        <StatCard title="Notes to Complete" value={notesNeededCount} icon={MessageCircle} />
+        <StatCard 
+          title="Upcoming" 
+          value={upcomingSessions.length} 
+          icon={CalendarCheck} 
+        />
+        <StatCard 
+          title={isMobile ? "Pending" : "Pending Requests"} 
+          value={pendingAppointments.length} 
+          icon={AlertTriangle} 
+        />
+        <StatCard 
+          title={isMobile ? "Notes" : "Notes to Complete"} 
+          value={notesNeededCount} 
+          icon={MessageCircle} 
+        />
       </div>
 
-      {/* Bento Grid */}
-      <div className="grid auto-rows-[22rem] grid-cols-1 lg:grid-cols-3 gap-6">
-        
+      {/* Main Content Grid */}
+      <div className="grid gap-6 auto-rows-fr grid-cols-1 lg:grid-cols-3">
         {/* Session Analytics Chart */}
-        <Card className="lg:col-span-2 flex flex-col shadow-lg">
+        <Card className="lg:col-span-2 shadow-md">
           <CardHeader>
             <CardTitle>Session Analytics</CardTitle>
-            <CardDescription>A look at your recent session activity.</CardDescription>
+            <CardDescription>Your recent counseling activity</CardDescription>
           </CardHeader>
-          <CardContent className="pl-2 flex-1">
-            <AppointmentsChart data={appointments} />
+          <CardContent className="h-[300px]">
+            <AppointmentsChart data={appointments} isMobile={isMobile} />
           </CardContent>
         </Card>
         
         {/* Next Session Reminder */}
-        {nextSession ? (
-          <Card className="flex flex-col shadow-lg">
-            <CardHeader>
-              <CardTitle>Next Session</CardTitle>
-              <CardDescription>Your next confirmed appointment.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col justify-center items-center text-center">
-              <Avatar className="w-20 h-20 mb-4 border-4 border-primary/20">
-                 <AvatarImage src={nextSession.studentAvatarUrl} alt={nextSession.studentName} />
-                 <AvatarFallback className="text-3xl">{nextSession.studentName.split(" ").map(n=>n[0]).join("")}</AvatarFallback>
-              </Avatar>
-              <p className="text-xl font-semibold">{nextSession.studentName}</p>
-              <div className="text-md text-muted-foreground flex items-center gap-2 mt-2">
-                <Calendar className="h-4 w-4" /> {format(parseISO(nextSession.date), 'EEE, MMM dd')}
-              </div>
-              <div className="text-md text-muted-foreground flex items-center gap-2 mt-1">
-                <Clock className="h-4 w-4" /> {nextSession.time}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full" asChild size="lg">
-                <Link href={`/session/${nextSession.id}/video`}>Start Meeting</Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : (
-          <Card className="flex flex-col items-center justify-center text-center shadow-lg">
-            <CardHeader><CardTitle>No Upcoming Sessions</CardTitle></CardHeader>
-            <CardContent className="text-muted-foreground">
-              <CalendarCheck className="h-16 w-16 mx-auto mb-4 text-primary"/>
-              <p>Your schedule is clear. Enjoy the break!</p>
-            </CardContent>
-            <CardFooter>
-                <Button asChild variant="secondary" className="w-full">
-                    <Link href="/counselor/appointments">View Full Schedule</Link>
+        <Card className="flex flex-col shadow-md">
+          {nextSession ? (
+            <>
+              <CardHeader>
+                <CardTitle>Next Session</CardTitle>
+                <CardDescription>Your upcoming appointment</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col justify-center items-center text-center space-y-4">
+                <Avatar className="w-16 h-16 md:w-20 md:h-20 border-4 border-primary/20">
+                  <AvatarImage src={nextSession.studentAvatarUrl} alt={nextSession.studentName} />
+                  <AvatarFallback className="text-xl md:text-2xl">
+                    {nextSession.studentName.split(" ").map(n=>n[0]).join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-lg md:text-xl font-semibold">{nextSession.studentName}</p>
+                  <div className="flex flex-col items-center mt-2 space-y-1">
+                    <div className="flex items-center text-sm md:text-base text-muted-foreground">
+                      <Calendar className="h-4 w-4 mr-2" /> 
+                      {format(parseISO(nextSession.date), 'EEE, MMM dd')}
+                    </div>
+                    <div className="flex items-center text-sm md:text-base text-muted-foreground">
+                      <Clock className="h-4 w-4 mr-2" /> 
+                      {nextSession.time}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" asChild size={isMobile ? "default" : "lg"}>
+                  <Link href={`/session/${nextSession.id}/video`}>
+                    {isMobile ? 'Start' : 'Start Meeting'}
+                  </Link>
                 </Button>
-            </CardFooter>
-          </Card>
-        )}
+              </CardFooter>
+            </>
+          ) : (
+            <>
+              <CardHeader>
+                <CardTitle>No Upcoming Sessions</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                <CalendarCheck className="h-12 w-12 mx-auto text-primary" />
+                <p className="text-muted-foreground">Your schedule is clear</p>
+              </CardContent>
+              <CardFooter>
+                <Button asChild variant="secondary" className="w-full">
+                  <Link href="/counselor/appointments">
+                    {isMobile ? 'Schedule' : 'View Full Schedule'}
+                  </Link>
+                </Button>
+              </CardFooter>
+            </>
+          )}
+        </Card>
 
         {/* Assigned Students List */}
-        <Card className="lg:col-span-3 flex flex-col shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div >
-                <CardTitle>Assigned Students</CardTitle>
-                <CardDescription>An overview of students you are currently assisting.</CardDescription>
+        <Card className="lg:col-span-3 shadow-md">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle>Assigned Students</CardTitle>
+              <CardDescription>Students you're currently assisting</CardDescription>
             </div>
-            <Button variant="outline" size="sm" asChild><Link href="/counselor/students"><Users className="mr-2 h-4 w-4"/>View All Students</Link></Button>
+            <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
+              <Link href="/counselor/students">
+                <Users className="mr-2 h-4 w-4" />
+                {isMobile ? 'Students' : 'View All Students'}
+              </Link>
+            </Button>
           </CardHeader>
-          <CardContent className="flex-1">
-            <div className="space-y-4">
-              {assignedStudents.slice(0, 4).map(student => (
-                <div key={student.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-secondary transition-colors">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={student.avatarUrl} alt={student.fullName} data-ai-hint={student.aiHint} />
-                    <AvatarFallback className="text-lg">{student.fullName.split(" ").map(n => n[0]).join("")}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="font-semibold text-lg">{student.fullName}</p>
-                    <p className="text-sm text-muted-foreground">ID: {student.universityId}</p>
+          <CardContent>
+            {assignedStudents.length > 0 ? (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                {assignedStudents.slice(0, isMobile ? 2 : 4).map(student => (
+                  <div 
+                    key={student.id} 
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors"
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={student.avatarUrl} alt={student.fullName} />
+                      <AvatarFallback className="text-sm">
+                        {student.fullName.split(" ").map(n => n[0]).join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{student.fullName}</p>
+                      <p className="text-xs text-muted-foreground truncate">ID: {student.universityId}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" asChild className="shrink-0">
+                      <Link href={`/counselor/students/${student.id}/profile`}>
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm" asChild>
-                     <Link href={`/counselor/students/${student.id}/profile`}>View Profile <ArrowRight className="w-4 h-4 ml-2"/></Link>
-                  </Button>
-                </div>
-              ))}
-              {assignedStudents.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">No students assigned yet.</p>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No students assigned yet</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

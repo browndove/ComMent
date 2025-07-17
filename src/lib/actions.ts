@@ -16,7 +16,7 @@ import {
   writeBatch,
   Timestamp,
 } from 'firebase/firestore';
-import type { RequestAppointmentInput } from './schemas';
+import type { RequestAppointmentInput, ProfileInput } from './schemas';
 import type { User } from './types';
 import { chat, type AssistantInput } from '@/ai/flows/assistant-flow';
 import { revalidatePath } from 'next/cache';
@@ -47,6 +47,159 @@ const serializeFirestoreData = (doc: any) => {
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
+
+// Update user profile
+export async function updateUserProfile(userId: string, data: ProfileInput) {
+  try {
+    const userRef = doc(db, 'users', userId);
+    
+    // First check if user exists
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      return { error: 'User not found' };
+    }
+
+    // Filter out undefined values and empty strings
+    const updateData: { [key: string]: any } = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        updateData[key] = value;
+      }
+    });
+
+    // Add modification timestamp
+    updateData.modifiedAt = serverTimestamp();
+
+    await updateDoc(userRef, updateData);
+
+    // Revalidate relevant paths
+    revalidatePath('/student/profile');
+    revalidatePath('/counselor/profile');
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating user profile:", error);
+    return { error: error.message };
+  }
+}
+
+// Get user profile
+export async function getUserProfile(userId: string) {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return { error: 'User not found' };
+    }
+
+    const userData = serializeFirestoreData(userDoc);
+    return { data: userData };
+  } catch (error: any) {
+    console.error("Error fetching user profile:", error);
+    return { error: error.message };
+  }
+}
+
+// Update appointment
+export async function updateAppointment(appointmentId: string, data: Partial<RequestAppointmentInput> & { status?: string }) {
+  try {
+    const appointmentRef = doc(db, 'appointments', appointmentId);
+    
+    // Check if appointment exists
+    const appointmentDoc = await getDoc(appointmentRef);
+    if (!appointmentDoc.exists()) {
+      return { error: 'Appointment not found' };
+    }
+
+    // Filter out undefined values and prepare update data
+    const updateData: { [key: string]: any } = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        if (key === 'preferredDate' && value instanceof Date) {
+          updateData.date = value.toISOString().split('T')[0];
+        } else if (key === 'preferredTime') {
+          updateData.time = value;
+        } else {
+          updateData[key] = value;
+        }
+      }
+    });
+
+    // Add modification timestamp
+    updateData.modifiedAt = serverTimestamp();
+
+    await updateDoc(appointmentRef, updateData);
+
+    // Revalidate relevant paths
+    revalidatePath('/student/appointments');
+    revalidatePath('/counselor/appointments');
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating appointment:", error);
+    return { error: error.message };
+  }
+}
+
+// Generic update function for any collection
+export async function updateDocument(collectionName: string, documentId: string, data: Record<string, any>) {
+  try {
+    const docRef = doc(db, collectionName, documentId);
+    
+    // Check if document exists
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      return { error: 'Document not found' };
+    }
+
+    // Filter out undefined values
+    const updateData: { [key: string]: any } = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
+    });
+
+    // Add modification timestamp
+    updateData.modifiedAt = serverTimestamp();
+
+    await updateDoc(docRef, updateData);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error(`Error updating document in ${collectionName}:`, error);
+    return { error: error.message };
+  }
+}
+
+// Batch update multiple documents
+export async function batchUpdateDocuments(updates: Array<{ collection: string, id: string, data: Record<string, any> }>) {
+  try {
+    const batch = writeBatch(db);
+    
+    updates.forEach(({ collection: collectionName, id, data }) => {
+      const docRef = doc(db, collectionName, id);
+      
+      // Filter out undefined values
+      const updateData: { [key: string]: any } = {};
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined) {
+          updateData[key] = value;
+        }
+      });
+      
+      updateData.modifiedAt = serverTimestamp();
+      batch.update(docRef, updateData);
+    });
+
+    await batch.commit();
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error in batch update:", error);
+    return { error: error.message };
+  }
+}
 
 // Get sessions for a specific student
 export async function getStudentSessions(studentId: string, forCounselor: boolean = false) {
@@ -284,6 +437,7 @@ export async function sendMessageToAi(
     const conversationCollection = collection(db, 'conversations');
     let conversationRef;
 
+    // Create new conversation if needed
     if (!convoId) {
       const newConvo = await addDoc(conversationCollection, {
         title: message.substring(0, 40) + (message.length > 40 ? '...' : ''),
@@ -297,7 +451,15 @@ export async function sendMessageToAi(
       conversationRef = doc(conversationCollection, convoId);
     }
 
-    // Fetch context
+    // Store user message immediately
+    const userMessageRef = doc(collection(conversationRef, 'messages'));
+    await addDoc(collection(conversationRef, 'messages'), {
+      text: message,
+      sender: 'user',
+      createdAt: serverTimestamp(),
+    });
+
+    // Fetch conversation history for context
     const messagesQuery = query(
       collection(conversationRef, 'messages'),
       orderBy('createdAt', 'desc'),
@@ -310,7 +472,7 @@ export async function sendMessageToAi(
       return { role: data.sender === 'user' ? 'user' : 'assistant', content: data.text };
     });
 
-    // Call OpenAI using the new SDK
+    // Call OpenAI API
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -323,25 +485,14 @@ export async function sendMessageToAi(
 
     const aiResponse = response.choices[0].message?.content || "Sorry, I don't have a response right now.";
 
-    // Save to Firestore
-    const batch = writeBatch(db);
-    const userMessageRef = doc(collection(conversationRef, 'messages'));
-    const aiMessageRef = doc(collection(conversationRef, 'messages'));
-
-    batch.set(userMessageRef, {
-      text: message,
-      sender: 'user',
-      createdAt: serverTimestamp(),
-    });
-
-    batch.set(aiMessageRef, {
+    // Store AI response separately with its own timestamp
+    const aiMessageRef = await addDoc(collection(conversationRef, 'messages'), {
       text: aiResponse,
       sender: 'ai',
       createdAt: serverTimestamp(),
     });
 
-    await batch.commit();
-
+    // Revalidate paths if new conversation was created
     if (newConversationId) {
       revalidatePath('/student/ai-assistant');
       revalidatePath(`/student/ai-assistant/${newConversationId}`);
