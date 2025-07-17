@@ -1,9 +1,11 @@
-import { AiAssistantChat } from "@/components/student/AiAssistantChat";
-import { Bot, MessageSquare } from "lucide-react";
+import React from 'react'
 
-export default function AiAssistantPage() {
-  // This page now renders the chat component for a new conversation
+const page = () => {
   return (
-    <AiAssistantChat conversationId={null} initialMessages={[]} />
-  );
+    <div>
+      
+    </div>
+  )
 }
+
+export default page

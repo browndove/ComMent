@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from './firebase';
@@ -23,6 +22,7 @@ import { chat, type AssistantInput } from '@/ai/flows/assistant-flow';
 import { revalidatePath } from 'next/cache';
 import type { Message } from 'genkit';
 
+import OpenAI from 'openai';
 
 // Helper to serialize Firestore data, converting Timestamps to ISO strings
 const serializeFirestoreData = (doc: any) => {
@@ -44,6 +44,9 @@ const serializeFirestoreData = (doc: any) => {
   return serializedData;
 };
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 // Get sessions for a specific student
 export async function getStudentSessions(studentId: string, forCounselor: boolean = false) {
@@ -270,12 +273,17 @@ export async function sendMessageToAi(
   message: string
 ) {
   try {
+    // Check if API key is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key is not configured');
+      return { error: 'AI assistant is not configured. Please contact support.' };
+    }
+
     let convoId = conversationId;
     let newConversationId: string | undefined = undefined;
     const conversationCollection = collection(db, 'conversations');
     let conversationRef;
 
-    // If no conversationId, create a new conversation
     if (!convoId) {
       const newConvo = await addDoc(conversationCollection, {
         title: message.substring(0, 40) + (message.length > 40 ? '...' : ''),
@@ -288,24 +296,34 @@ export async function sendMessageToAi(
     } else {
       conversationRef = doc(conversationCollection, convoId);
     }
-    
-    // Fetch previous messages for context
+
+    // Fetch context
     const messagesQuery = query(
       collection(conversationRef, 'messages'),
       orderBy('createdAt', 'desc'),
-      limit(20) 
+      limit(20)
     );
     const messagesSnapshot = await getDocs(messagesQuery);
-    
-    const history: Message[] = messagesSnapshot.docs.reverse().map(doc => {
+
+    const history: { role: 'user' | 'assistant', content: string }[] = messagesSnapshot.docs.reverse().map(doc => {
       const data = doc.data();
-      return { role: data.sender === 'user' ? 'user' : 'model', content: data.text };
+      return { role: data.sender === 'user' ? 'user' : 'assistant', content: data.text };
     });
 
-    // Call Genkit flow
-    const aiResponse = await chat({ message, history });
+    // Call OpenAI using the new SDK
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: 'You are Ama, a helpful AI assistant for university students. Be supportive, clear, and resourceful.' },
+        ...history,
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7,
+    });
 
-    // Save messages to Firestore in a batch
+    const aiResponse = response.choices[0].message?.content || "Sorry, I don't have a response right now.";
+
+    // Save to Firestore
     const batch = writeBatch(db);
     const userMessageRef = doc(collection(conversationRef, 'messages'));
     const aiMessageRef = doc(collection(conversationRef, 'messages'));
@@ -324,10 +342,9 @@ export async function sendMessageToAi(
 
     await batch.commit();
 
-    // Revalidate the path if a new conversation was created
-    if(newConversationId) {
-        revalidatePath('/student/ai-assistant');
-        revalidatePath(`/student/ai-assistant/${newConversationId}`);
+    if (newConversationId) {
+      revalidatePath('/student/ai-assistant');
+      revalidatePath(`/student/ai-assistant/${newConversationId}`);
     }
 
     return {
@@ -338,7 +355,7 @@ export async function sendMessageToAi(
       aiMessageId: aiMessageRef.id,
     };
   } catch (error: any) {
-    console.error('Error sending message to AI:', error);
+    console.error('Error sending message to OpenAI:', error.response?.data || error.message);
     return { error: 'Failed to get a response from the AI assistant.' };
   }
 }
