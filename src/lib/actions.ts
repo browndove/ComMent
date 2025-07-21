@@ -476,7 +476,7 @@ export async function sendMessageToAi(
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
-        { role: 'system', content: 'You are Ama, a helpful AI assistant for university students. Be supportive, clear, and resourceful.' },
+        { role: 'system', content: 'You are Ama, a compassionate and knowledgeable AI assistant specializing in mental health support for university students. Your purpose is to provide a safe, non-judgmental space where students can find guidance, resources, and emotional support.' },
         ...history,
         { role: 'user', content: message }
       ],

@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { 
   BarChart, Users, CalendarCheck, MessageCircle, Activity, AlertTriangle, 
-  Settings, Loader2, Plus, Calendar, Clock, ArrowRight, BookOpen, NotebookPen
+  Settings, Loader2, Plus, Calendar, Clock, ArrowRight, BookOpen, NotebookPen,
+  Phone, Mail, Search, Filter, MoreHorizontal, Video, User, Home, FileText,
+  Target, Building, TrendingUp, ChevronDown, Bell, Grid3X3, Mic
 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -13,12 +15,12 @@ import { getCounselorAppointments, getAssignedStudents } from '@/lib/actions';
 import { useEffect, useState, useCallback } from 'react';
 import type { Appointment } from "@/components/dashboard/AppointmentCard";
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, parseISO } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { AppointmentsChart } from '@/components/counselor/AppointmentsChart';
 import { ScheduleCalendar } from '@/components/counselor/ScheduleCalendar';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 type Student = {
   id: string;
@@ -26,6 +28,20 @@ type Student = {
   universityId: string;
   avatarUrl?: string;
   aiHint?: string;
+  status?: 'Active' | 'Pending' | 'Closed';
+  type?: string;
+  nextAppointment?: string;
+  lastContact?: string;
+};
+
+type CalendarAppointment = {
+  id: string;
+  studentName: string;
+  studentAvatar?: string;
+  time: string;
+  type: string;
+  status: 'Pending' | 'Confirmed' | 'Completed';
+  duration?: string;
 };
 
 export default function CounselorDashboardPage() {
@@ -36,17 +52,38 @@ export default function CounselorDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState('Week');
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Mock calendar appointments for demonstration
+  const [calendarAppointments] = useState<CalendarAppointment[]>([
+    {
+      id: '1',
+      studentName: 'James Anderson',
+      studentAvatar: '',
+      time: '8:30-9:30 PM',
+      type: '2BR Apartment Viewing',
+      status: 'Pending',
+      duration: '1h'
+    },
+    {
+      id: '2',
+      studentName: 'Robert White',
+      time: '10:00-11:20 PM',
+      type: 'Townhouse Visit',
+      status: 'Confirmed',
+      duration: '1h 20m'
+    },
+    {
+      id: '3',
+      studentName: 'Emily Johnson',
+      time: '9:50-10:30 PM',
+      type: 'Penthouse Tour',
+      status: 'Pending',
+      duration: '40m'
+    }
+  ]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -61,8 +98,17 @@ export default function CounselorDashboardPage() {
       if (appointmentsResult.error) throw new Error(appointmentsResult.error);
       if (studentsResult.error) throw new Error(studentsResult.error);
 
+      // Add mock data for better styling demonstration
+      const studentsWithStatus = (studentsResult.data as Student[] || []).map((student, index) => ({
+        ...student,
+        status: (['Active', 'Pending', 'Closed'] as const)[index % 3],
+        type: ['Academic Support', 'Career Guidance', 'Personal Counseling'][index % 3],
+        nextAppointment: ['Su 12:03 2:30 pm', 'Mo 14:30 3:00 pm', 'Tu 09:15 1:45 pm'][index % 3],
+        lastContact: ['2 days ago', '1 week ago', '3 days ago'][index % 3]
+      }));
+
       setAppointments(appointmentsResult.data as Appointment[] || []);
-      setAssignedStudents(studentsResult.data as Student[] || []);
+      setAssignedStudents(studentsWithStatus);
     } catch (err: any) {
       setError(err.message);
       toast({ variant: 'destructive', title: "Failed to load dashboard", description: err.message });
@@ -77,242 +123,362 @@ export default function CounselorDashboardPage() {
     }
   }, [user, fetchData]);
 
-  const pendingAppointments = appointments.filter(a => a.status.toLowerCase() === 'pending');
-  const upcomingSessions = appointments.filter(a => a.status.toLowerCase() === 'confirmed' && new Date(a.date) >= new Date());
-  const nextSession = upcomingSessions.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
-  const notesNeededCount = appointments.filter(a => a.status.toLowerCase() === 'completed' && !(a as any).notesAvailable).length;
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active': case 'confirmed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'pending': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'closed': case 'completed': return 'bg-gray-100 text-gray-700 border-gray-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
 
-  const StatCard = ({ title, value, icon: Icon }: { 
-    title: string, 
-    value: string | number, 
-    icon: React.ElementType
-  }) => (
-    <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl md:text-3xl font-bold">
-          {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : value}
-        </div>
-      </CardContent>
-    </Card>
+  const filteredStudents = assignedStudents.filter(student =>
+    student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.universityId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
     return (
-      <div className="space-y-6 p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-          <Skeleton className="h-10 w-48" />
+      <div className="min-h-screen bg-gray-50">
+        <div className="p-6">
+          <Skeleton className="h-96 w-full rounded-lg" />
         </div>
-        <Skeleton className="h-[350px] w-full rounded-xl" />
-        <div className="grid gap-4 sm:gap-6 grid-cols-2 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 auto-rows-fr">
-          <Skeleton className="lg:col-span-2 h-96 rounded-xl" />
-          <div className="space-y-6">
-            <Skeleton className="h-48 rounded-xl" />
-            <Skeleton className="h-42 rounded-xl" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4">
-        <Card className="bg-destructive/10 border-destructive text-center p-8">
-          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h3 className="text-xl font-bold text-destructive-foreground">Dashboard Error</h3>
-          <p className="text-destructive-foreground/90 mb-4">{error}</p>
-          <Button variant="destructive" onClick={fetchData} className="mt-4">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Try Again
-          </Button>
-        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Welcome, {user?.fullName?.split(' ')[0]}</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Here's a snapshot of your counseling activities</p>
-        </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/counselor/appointments">
-            <Calendar className="mr-2 h-4 w-4" /> 
-            <span className="hidden sm:inline">Manage All Appointments</span>
-            <span className="inline sm:hidden">Appointments</span>
-          </Link>
-        </Button>
-      </div>
-
-      {/* Schedule Calendar - Mobile optimized */}
-      <div className="rounded-xl border bg-card shadow-sm">
-        <ScheduleCalendar 
-          appointments={appointments} 
-          isMobile={isMobile}
-        />
-      </div>
-
-      {/* Stats Grid - Responsive layout */}
-      <div className="grid gap-4 sm:gap-6 grid-cols-2 md:grid-cols-4">
-        <StatCard 
-          title="Total Students" 
-          value={assignedStudents.length} 
-          icon={Users} 
-        />
-        <StatCard 
-          title="Upcoming" 
-          value={upcomingSessions.length} 
-          icon={CalendarCheck} 
-        />
-        <StatCard 
-          title={isMobile ? "Pending" : "Pending Requests"} 
-          value={pendingAppointments.length} 
-          icon={AlertTriangle} 
-        />
-        <StatCard 
-          title={isMobile ? "Notes" : "Notes to Complete"} 
-          value={notesNeededCount} 
-          icon={MessageCircle} 
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid gap-6 auto-rows-fr grid-cols-1 lg:grid-cols-3">
-        {/* Session Analytics Chart */}
-        <Card className="lg:col-span-2 shadow-md">
-          <CardHeader>
-            <CardTitle>Session Analytics</CardTitle>
-            <CardDescription>Your recent counseling activity</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <AppointmentsChart data={appointments} isMobile={isMobile} />
-          </CardContent>
-        </Card>
-        
-        {/* Next Session Reminder */}
-        <Card className="flex flex-col shadow-md">
-          {nextSession ? (
-            <>
-              <CardHeader>
-                <CardTitle>Next Session</CardTitle>
-                <CardDescription>Your upcoming appointment</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col justify-center items-center text-center space-y-4">
-                <Avatar className="w-16 h-16 md:w-20 md:h-20 border-4 border-primary/20">
-                  <AvatarImage src={nextSession.studentAvatarUrl} alt={nextSession.studentName} />
-                  <AvatarFallback className="text-xl md:text-2xl">
-                    {nextSession.studentName.split(" ").map(n=>n[0]).join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-lg md:text-xl font-semibold">{nextSession.studentName}</p>
-                  <div className="flex flex-col items-center mt-2 space-y-1">
-                    <div className="flex items-center text-sm md:text-base text-muted-foreground">
-                      <Calendar className="h-4 w-4 mr-2" /> 
-                      {format(parseISO(nextSession.date), 'EEE, MMM dd')}
-                    </div>
-                    <div className="flex items-center text-sm md:text-base text-muted-foreground">
-                      <Clock className="h-4 w-4 mr-2" /> 
-                      {nextSession.time}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" asChild size={isMobile ? "default" : "lg"}>
-                  <Link href={`/session/${nextSession.id}/video`}>
-                    {isMobile ? 'Start' : 'Start Meeting'}
-                  </Link>
-                </Button>
-              </CardFooter>
-            </>
-          ) : (
-            <>
-              <CardHeader>
-                <CardTitle>No Upcoming Sessions</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-                <CalendarCheck className="h-12 w-12 mx-auto text-primary" />
-                <p className="text-muted-foreground">Your schedule is clear</p>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="secondary" className="w-full">
-                  <Link href="/counselor/appointments">
-                    {isMobile ? 'Schedule' : 'View Full Schedule'}
-                  </Link>
-                </Button>
-              </CardFooter>
-            </>
-          )}
-        </Card>
-
-        {/* Assigned Students List */}
-        <Card className="lg:col-span-3 shadow-md">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <CardTitle>Assigned Students</CardTitle>
-              <CardDescription>Students you're currently assisting</CardDescription>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">CC</span>
+              </div>
+              <span className="font-semibold text-gray-900">COUNSELING</span>
             </div>
-            <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
-              <Link href="/counselor/students">
-                <Users className="mr-2 h-4 w-4" />
-                {isMobile ? 'Students' : 'View All Students'}
-              </Link>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input 
+                placeholder="Search" 
+                className="pl-10 w-80 border-gray-200"
+              />
+            </div>
+            <Button variant="ghost" size="sm">
+              <Grid3X3 className="h-4 w-4" />
             </Button>
-          </CardHeader>
-          <CardContent>
-            {assignedStudents.length > 0 ? (
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                {assignedStudents.slice(0, isMobile ? 2 : 4).map(student => (
-                  <div 
-                    key={student.id} 
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors"
+            <Button variant="ghost" size="sm">
+              <Mic className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="sm">
+              <Bell className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm">
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.photoURL} />
+              <AvatarFallback className="bg-gray-800 text-white text-xs">
+                {user?.fullName?.split(' ').map(n => n[0]).join('') || 'U'}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar Content */}
+      <div className="flex">
+        {/* Calendar Section */}
+        <div className="flex-1 p-6">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-semibold text-gray-900">Calendar</h1>
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Button 
+                    variant={currentView === 'Day' ? 'default' : 'ghost'} 
+                    size="sm"
+                    onClick={() => setCurrentView('Day')}
                   >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={student.avatarUrl} alt={student.fullName} />
-                      <AvatarFallback className="text-sm">
-                        {student.fullName.split(" ").map(n => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{student.fullName}</p>
-                      <p className="text-xs text-muted-foreground truncate">ID: {student.universityId}</p>
+                    Day
+                  </Button>
+                  <Button 
+                    variant={currentView === 'Week' ? 'default' : 'ghost'} 
+                    size="sm"
+                    className="bg-gray-900 hover:bg-gray-800"
+                    onClick={() => setCurrentView('Week')}
+                  >
+                    Week
+                  </Button>
+                  <Button 
+                    variant={currentView === 'Month' ? 'default' : 'ghost'} 
+                    size="sm"
+                    onClick={() => setCurrentView('Month')}
+                  >
+                    Month
+                  </Button>
+                  <Button 
+                    variant={currentView === 'Year' ? 'default' : 'ghost'} 
+                    size="sm"
+                    onClick={() => setCurrentView('Year')}
+                  >
+                    Year
+                  </Button>
+                </div>
+                <Button className="bg-gray-900 hover:bg-gray-800">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Schedule Header */}
+          <div className="bg-white rounded-lg border border-gray-200 mb-6">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-gray-900 text-lg">Schedule</h2>
+                <div className="grid grid-cols-7 gap-8 text-center">
+                  <div className="text-sm text-gray-500 font-medium">Monday 13</div>
+                  <div className="text-sm text-gray-500 font-medium">Tuesday 14</div>
+                  <div className="text-sm text-gray-500 font-medium">Wednesday 15</div>
+                  <div className="text-sm text-gray-500 font-medium">Thursday 16</div>
+                  <div className="text-sm text-gray-900 font-semibold">Friday 18</div>
+                  <div className="text-sm text-gray-500 font-medium">Saturday 18</div>
+                  <div className="text-sm text-gray-500 font-medium">Sunday 18</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Time Slots */}
+            <div className="p-6">
+              <div className="space-y-6">
+                {[
+                  { 
+                    time: '08:00', 
+                    appointments: [
+                      { 
+                        name: 'James Anderson', 
+                        type: '2BR Apartment Viewing', 
+                        status: 'Pending',
+                        day: 0,
+                        avatar: 'JA'
+                      }
+                    ]
+                  },
+                  { 
+                    time: '09:00', 
+                    appointments: [
+                      { 
+                        name: 'James Anderson', 
+                        type: '2BR Apartment Viewing', 
+                        status: 'Pending', 
+                        time: '8:30-9:30 PM',
+                        day: 0,
+                        avatar: 'JA'
+                      }
+                    ]
+                  },
+                  { 
+                    time: '10:00', 
+                    appointments: [
+                      { 
+                        name: 'Robert White', 
+                        type: 'Townhouse Visit', 
+                        status: 'Confirmed',
+                        day: 0,
+                        avatar: 'RW'
+                      },
+                      { 
+                        name: 'Emily Johnson', 
+                        type: 'Penthouse Tour', 
+                        status: 'Pending', 
+                        time: '9:50-10:30 PM',
+                        day: 3,
+                        avatar: 'EJ'
+                      }
+                    ]
+                  },
+                  { 
+                    time: '11:00', 
+                    appointments: [
+                      { 
+                        name: 'Robert White', 
+                        type: 'Townhouse Visit', 
+                        status: 'Confirmed', 
+                        time: '10:00-11:20 PM',
+                        day: 0,
+                        avatar: 'RW'
+                      }
+                    ]
+                  },
+                  { 
+                    time: '12:00', 
+                    appointments: [
+                      { 
+                        name: 'James Anderson', 
+                        type: '2BR Apartment Viewing', 
+                        status: 'Pending',
+                        day: 2,
+                        avatar: 'JA'
+                      },
+                      { 
+                        name: 'James Anderson', 
+                        type: '2BR Apartment Viewing', 
+                        status: 'Pending',
+                        day: 4,
+                        avatar: 'JA'
+                      }
+                    ]
+                  },
+                  { 
+                    time: '13:00', 
+                    appointments: [
+                      { 
+                        name: 'Robert White', 
+                        type: 'Townhouse Visit', 
+                        status: 'Confirmed', 
+                        time: '11:30-1:00 PM',
+                        day: 1,
+                        avatar: 'RW'
+                      }
+                    ]
+                  }
+                ].map((timeSlot, idx) => (
+                  <div key={idx} className="flex items-start">
+                    <div className="w-20 flex flex-col items-center pt-4">
+                      <div className="text-sm font-medium text-gray-900">{timeSlot.time}</div>
+                      <div className="w-2 h-2 bg-gray-300 rounded-full mt-2"></div>
                     </div>
-                    <Button variant="ghost" size="icon" asChild className="shrink-0">
-                      <Link href={`/counselor/students/${student.id}/profile`}>
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    </Button>
+                    <div className="flex-1 grid grid-cols-7 gap-4 ml-6">
+                      {[0, 1, 2, 3, 4, 5, 6].map(day => {
+                        const appointment = timeSlot.appointments.find(apt => apt.day === day);
+                        return (
+                          <div key={day} className="min-h-[80px] relative">
+                            {appointment && (
+                              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group">
+                                <div className="flex items-start justify-between mb-3">
+                                  <Avatar className="h-10 w-10 ring-2 ring-gray-100">
+                                    <AvatarFallback className="bg-indigo-500 text-white text-sm font-medium">
+                                      {appointment.avatar}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <MoreHorizontal className="h-4 w-4 text-gray-400" />
+                                  </Button>
+                                </div>
+                                <div className="space-y-2">
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-900 leading-tight">
+                                      {appointment.name}
+                                    </p>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      {appointment.type}
+                                    </p>
+                                  </div>
+                                  {appointment.time && (
+                                    <div className="flex items-center text-xs text-gray-500">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      {appointment.time}
+                                    </div>
+                                  )}
+                                  <Badge 
+                                    className={cn(
+                                      "text-xs px-3 py-1 rounded-full font-medium border",
+                                      getStatusColor(appointment.status)
+                                    )}
+                                  >
+                                    {appointment.status}
+                                  </Badge>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No students assigned yet</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar - Quick Connects */}
+        <div className="w-80 bg-white border-l border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-medium text-gray-900">All Students (398)</h3>
+            <Button variant="ghost" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input 
+                placeholder="Quick Connects" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 border-gray-200"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {filteredStudents.slice(0, 6).map((student, idx) => (
+              <div key={student.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={student.avatarUrl} />
+                      <AvatarFallback className="bg-indigo-100 text-indigo-700">
+                        {student.fullName.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{student.fullName}</p>
+                      <p className="text-xs text-gray-500">{student.type}</p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <Phone className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <Video className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Next:</span>
+                    <span className="font-medium text-gray-700">{student.nextAppointment}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">{student.lastContact}</span>
+                    <Badge className={cn("text-xs px-2 py-0.5", getStatusColor(student.status || 'active'))}>
+                      {student.status || 'Active'}
+                    </Badge>
+                  </div>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+
+          <Button variant="outline" className="w-full mt-4 text-gray-600 border-gray-200">
+            Add search
+          </Button>
+        </div>
       </div>
     </div>
   );
