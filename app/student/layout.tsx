@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Header } from "@/components/layout/Header";
+
 import { SidebarNav } from "../../src/components/layout/SidebarNav";
 import { SidebarProvider, SidebarInset, SidebarRail } from "@/components/ui/sidebar";
 import { studentNavItems } from "@/lib/constants";
@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { Header } from "@/components/layout/Header";
 
 export default function StudentLayout({
   children,

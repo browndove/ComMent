@@ -150,28 +150,30 @@ export default function CounselorDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+          <div className="flex items-center space-x-4 w-full sm:w-auto">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">CC</span>
               </div>
-              <span className="font-semibold text-gray-900">COUNSELING</span>
+              <span className="font-semibold text-gray-900 hidden sm:block">COUNSELING</span>
             </div>
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input 
                 placeholder="Search" 
-                className="pl-10 w-80 border-gray-200"
+                className="pl-10 w-full sm:w-80 border-gray-200"
               />
             </div>
-            <Button variant="ghost" size="sm">
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Mic className="h-4 w-4" />
-            </Button>
+            <div className="hidden sm:flex space-x-2">
+              <Button variant="ghost" size="sm">
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Mic className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm">
@@ -190,15 +192,15 @@ export default function CounselorDashboardPage() {
         </div>
       </div>
 
-      {/* Calendar Content */}
-      <div className="flex">
+      {/* Main Content - Column Layout */}
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Calendar Section */}
-        <div className="flex-1 p-6">
+        <div className="w-full">
           <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 mb-4">
               <h1 className="text-2xl font-semibold text-gray-900">Calendar</h1>
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                <div className="flex items-center space-x-1">
                   <Button 
                     variant={currentView === 'Day' ? 'default' : 'ghost'} 
                     size="sm"
@@ -229,7 +231,7 @@ export default function CounselorDashboardPage() {
                     Year
                   </Button>
                 </div>
-                <Button className="bg-gray-900 hover:bg-gray-800">
+                <Button className="bg-gray-900 hover:bg-gray-800 w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Add New
                 </Button>
@@ -237,169 +239,90 @@ export default function CounselorDashboardPage() {
             </div>
           </div>
 
-          {/* Schedule Header */}
+          {/* Schedule Calendar */}
           <div className="bg-white rounded-lg border border-gray-200 mb-6">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-gray-900 text-lg">Schedule</h2>
-                <div className="grid grid-cols-7 gap-8 text-center">
-                  <div className="text-sm text-gray-500 font-medium">Monday 13</div>
-                  <div className="text-sm text-gray-500 font-medium">Tuesday 14</div>
-                  <div className="text-sm text-gray-500 font-medium">Wednesday 15</div>
-                  <div className="text-sm text-gray-500 font-medium">Thursday 16</div>
-                  <div className="text-sm text-gray-900 font-semibold">Friday 18</div>
-                  <div className="text-sm text-gray-500 font-medium">Saturday 18</div>
-                  <div className="text-sm text-gray-500 font-medium">Sunday 18</div>
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between space-y-4 lg:space-y-0">
+                <h2 className="font-medium text-gray-900">Schedule</h2>
+                <div className="grid grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-4 text-sm w-full lg:w-auto">
+                  <div className="text-gray-500 text-center py-2">Monday 13</div>
+                  <div className="text-gray-500 text-center py-2">Tuesday 14</div>
+                  <div className="text-gray-500 text-center py-2">Wednesday 15</div>
+                  <div className="text-gray-500 text-center py-2">Thursday 16</div>
+                  <div className="font-medium text-gray-900 text-center py-2 bg-gray-50 rounded">Friday 18</div>
+                  <div className="text-gray-500 text-center py-2">Saturday 18</div>
+                  <div className="text-gray-500 text-center py-2">Sunday 18</div>
                 </div>
               </div>
             </div>
 
             {/* Time Slots */}
-            <div className="p-6">
-              <div className="space-y-6">
+            <div className="p-4">
+              <div className="space-y-4">
                 {[
-                  { 
-                    time: '08:00', 
-                    appointments: [
-                      { 
-                        name: 'James Anderson', 
-                        type: '2BR Apartment Viewing', 
-                        status: 'Pending',
-                        day: 0,
-                        avatar: 'JA'
-                      }
-                    ]
-                  },
-                  { 
-                    time: '09:00', 
-                    appointments: [
-                      { 
-                        name: 'James Anderson', 
-                        type: '2BR Apartment Viewing', 
-                        status: 'Pending', 
-                        time: '8:30-9:30 PM',
-                        day: 0,
-                        avatar: 'JA'
-                      }
-                    ]
-                  },
-                  { 
-                    time: '10:00', 
-                    appointments: [
-                      { 
-                        name: 'Robert White', 
-                        type: 'Townhouse Visit', 
-                        status: 'Confirmed',
-                        day: 0,
-                        avatar: 'RW'
-                      },
-                      { 
-                        name: 'Emily Johnson', 
-                        type: 'Penthouse Tour', 
-                        status: 'Pending', 
-                        time: '9:50-10:30 PM',
-                        day: 3,
-                        avatar: 'EJ'
-                      }
-                    ]
-                  },
-                  { 
-                    time: '11:00', 
-                    appointments: [
-                      { 
-                        name: 'Robert White', 
-                        type: 'Townhouse Visit', 
-                        status: 'Confirmed', 
-                        time: '10:00-11:20 PM',
-                        day: 0,
-                        avatar: 'RW'
-                      }
-                    ]
-                  },
-                  { 
-                    time: '12:00', 
-                    appointments: [
-                      { 
-                        name: 'James Anderson', 
-                        type: '2BR Apartment Viewing', 
-                        status: 'Pending',
-                        day: 2,
-                        avatar: 'JA'
-                      },
-                      { 
-                        name: 'James Anderson', 
-                        type: '2BR Apartment Viewing', 
-                        status: 'Pending',
-                        day: 4,
-                        avatar: 'JA'
-                      }
-                    ]
-                  },
-                  { 
-                    time: '13:00', 
-                    appointments: [
-                      { 
-                        name: 'Robert White', 
-                        type: 'Townhouse Visit', 
-                        status: 'Confirmed', 
-                        time: '11:30-1:00 PM',
-                        day: 1,
-                        avatar: 'RW'
-                      }
-                    ]
-                  }
+                  { time: '08:00', appointments: [
+                    { name: 'James Anderson', type: '2BR Apartment Viewing', status: 'Pending' }
+                  ]},
+                  { time: '09:00', appointments: [
+                    { name: 'James Anderson', type: '2BR Apartment Viewing', status: 'Pending', time: '8:10-9:50 PM' }
+                  ]},
+                  { time: '10:00', appointments: [
+                    { name: 'Robert White', type: 'Townhouse Visit', status: 'Confirmed' },
+                    { name: 'Emily Johnson', type: 'Penthouse Tour', status: 'Pending', time: '9:50-10:30 PM' }
+                  ]},
+                  { time: '11:00', appointments: [
+                    { name: 'Robert White', type: 'Townhouse Visit', status: 'Confirmed', time: '10:00-11:20 PM' }
+                  ]},
+                  { time: '12:00', appointments: [
+                    { name: 'James Anderson', type: '2BR Apartment Viewing', status: 'Pending' }
+                  ]},
+                  { time: '13:00', appointments: [
+                    { name: 'Robert White', type: 'Townhouse Visit', status: 'Confirmed', time: '11:30-1:00 PM' }
+                  ]}
                 ].map((timeSlot, idx) => (
-                  <div key={idx} className="flex items-start">
-                    <div className="w-20 flex flex-col items-center pt-4">
-                      <div className="text-sm font-medium text-gray-900">{timeSlot.time}</div>
-                      <div className="w-2 h-2 bg-gray-300 rounded-full mt-2"></div>
+                  <div key={idx} className="flex flex-col lg:flex-row space-y-4 lg:space-y-0">
+                    <div className="w-full lg:w-16 text-sm text-gray-500 font-medium lg:pt-2 text-center lg:text-left border-b lg:border-b-0 pb-2 lg:pb-0">
+                      {timeSlot.time}
                     </div>
-                    <div className="flex-1 grid grid-cols-7 gap-4 ml-6">
-                      {[0, 1, 2, 3, 4, 5, 6].map(day => {
-                        const appointment = timeSlot.appointments.find(apt => apt.day === day);
-                        return (
-                          <div key={day} className="min-h-[80px] relative">
-                            {appointment && (
-                              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer group">
-                                <div className="flex items-start justify-between mb-3">
-                                  <Avatar className="h-10 w-10 ring-2 ring-gray-100">
-                                    <AvatarFallback className="bg-indigo-500 text-white text-sm font-medium">
-                                      {appointment.avatar}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <MoreHorizontal className="h-4 w-4 text-gray-400" />
-                                  </Button>
+                    <div className="flex-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+                        {timeSlot.appointments.map((appointment, appointmentIdx) => (
+                          <div key={appointmentIdx} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-start justify-between mb-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs">
+                                  {appointment.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                                {appointment.name}
+                              </p>
+                              <p className="text-xs text-gray-500 line-clamp-1">
+                                {appointment.type}
+                              </p>
+                              {appointment.time && (
+                                <div className="flex items-center text-xs text-gray-500">
+                                  <Clock className="h-3 w-3 mr-1 shrink-0" />
+                                  <span className="line-clamp-1">{appointment.time}</span>
                                 </div>
-                                <div className="space-y-2">
-                                  <div>
-                                    <p className="text-sm font-semibold text-gray-900 leading-tight">
-                                      {appointment.name}
-                                    </p>
-                                    <p className="text-xs text-gray-600 mt-1">
-                                      {appointment.type}
-                                    </p>
-                                  </div>
-                                  {appointment.time && (
-                                    <div className="flex items-center text-xs text-gray-500">
-                                      <Clock className="h-3 w-3 mr-1" />
-                                      {appointment.time}
-                                    </div>
-                                  )}
-                                  <Badge 
-                                    className={cn(
-                                      "text-xs px-3 py-1 rounded-full font-medium border",
-                                      getStatusColor(appointment.status)
-                                    )}
-                                  >
-                                    {appointment.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                            )}
+                              )}
+                              <Badge 
+                                className={cn(
+                                  "text-xs px-2 py-0.5 rounded-full",
+                                  getStatusColor(appointment.status)
+                                )}
+                              >
+                                {appointment.status}
+                              </Badge>
+                            </div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -408,76 +331,80 @@ export default function CounselorDashboardPage() {
           </div>
         </div>
 
-        {/* Right Sidebar - Quick Connects */}
-        <div className="w-80 bg-white border-l border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-medium text-gray-900">All Students (398)</h3>
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input 
-                placeholder="Quick Connects" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-gray-200"
-              />
+        {/* Students Section - Now Below Calendar */}
+        <div className="w-full">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">All Students (398)</h3>
+              <Button variant="ghost" size="sm">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            {filteredStudents.slice(0, 6).map((student, idx) => (
-              <div key={student.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={student.avatarUrl} />
-                      <AvatarFallback className="bg-indigo-100 text-indigo-700">
-                        {student.fullName.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{student.fullName}</p>
-                      <p className="text-xs text-gray-500">{student.type}</p>
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Quick Connects" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-gray-200 max-w-md"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredStudents.slice(0, 12).map((student) => (
+                <div key={student.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <Avatar className="h-10 w-10 shrink-0">
+                        <AvatarImage src={student.avatarUrl} />
+                        <AvatarFallback className="bg-indigo-100 text-indigo-700 text-sm">
+                          {student.fullName.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 text-sm truncate">{student.fullName}</p>
+                        <p className="text-xs text-gray-500 truncate">{student.type}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-1 shrink-0">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <Phone className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <Video className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <ArrowRight className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex space-x-1">
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <Phone className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <Video className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <ArrowRight className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Next:</span>
-                    <span className="font-medium text-gray-700">{student.nextAppointment}</span>
-                  </div>
                   
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{student.lastContact}</span>
-                    <Badge className={cn("text-xs px-2 py-0.5", getStatusColor(student.status || 'active'))}>
-                      {student.status || 'Active'}
-                    </Badge>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Next:</span>
+                      <span className="font-medium text-gray-700 truncate ml-2">{student.nextAppointment}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">{student.lastContact}</span>
+                      <Badge className={cn("text-xs px-2 py-0.5 shrink-0", getStatusColor(student.status || 'active'))}>
+                        {student.status || 'Active'}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <Button variant="outline" className="w-full mt-4 text-gray-600 border-gray-200">
-            Add search
-          </Button>
+            <div className="flex justify-center mt-6">
+              <Button variant="outline" className="text-gray-600 border-gray-200">
+                Load More Students
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
