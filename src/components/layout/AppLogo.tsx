@@ -65,7 +65,6 @@ export function AppLogo({
           currentVariant.textSize,
           "text-foreground tracking-tight leading-tight"
         )}>
-          <span className="block">Accra</span>
           <span className="block -mt-1">TechMind</span>
         </div>
         

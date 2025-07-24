@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   Mic, 
@@ -20,107 +20,388 @@ import {
   Volume2,
   ChevronUp,
   X,
-  Pin
+  Pin,
+  Loader2
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import Peer from 'simple-peer';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter, useParams } from 'next/navigation';
+import { doc, onSnapshot, updateDoc, collection, addDoc, getDocs, query, where, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-// Mock user data
-const getParticipantInfo = (role?: 'student' | 'counselor' | null) => {
+// Mock user data - will be replaced by auth user
+const getParticipantInfo = (role?: 'student' | 'counselor' | null, peerName?: string | null) => {
     if (role === 'student') {
         return {
             currentUser: { name: "Adjoa Mensah", role: "Student", avatarUrl: "https://placehold.co/100x100.png", aiHint: "student photo" },
-            peerUser: { name: "Dr. Nancy Darkoah", role: "Counselor", avatarUrl: "https://placehold.co/100x100.png", aiHint: "professional portrait" }
+            peerUser: { name: peerName || "Counselor", role: "Counselor", avatarUrl: "https://placehold.co/100x100.png", aiHint: "professional portrait" }
         }
     }
     return {
         currentUser: { name: "Dr. Nancy Darkoah", role: "Counselor", avatarUrl: "https://placehold.co/100x100.png", aiHint: "professional portrait" },
-        peerUser: { name: "Adjoa Mensah", role: "Student", avatarUrl: "https://placehold.co/100x100.png", aiHint: "student photo" }
+        peerUser: { name: peerName || "Student", role: "Student", avatarUrl: "https://placehold.co/100x100.png", aiHint: "student photo" }
     }
 }
 
-export default function ZoomVideoCallInterface() {
-  const [stream, setStream] = useState(null);
-  const [callAccepted, setCallAccepted] = useState(false);
+export function VideoCallInterface() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
+  const params = useParams();
+  const sessionId = params.sessionId as string;
+
+  const peerRef = useRef<Peer.Instance | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'disconnected'>('idle');
+
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [showParticipants, setShowParticipants] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: 'Dr. Nancy Darkoah', text: 'Welcome to our counseling session. How are you feeling today?', timestamp: '10:30 AM' },
-    { sender: 'You', text: 'Thank you for asking. I\'ve been feeling a bit overwhelmed lately.', timestamp: '10:31 AM' }
-  ]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [connectionQuality, setConnectionQuality] = useState('excellent');
-  const [recordingStatus, setRecordingStatus] = useState(false);
+
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   
-  const myVideo = useRef(null);
-  const userVideo = useRef(null);
+  // State tracking refs to prevent race conditions
+  const connectionStateRef = useRef({
+    hasProcessedOffer: false,
+    hasProcessedAnswer: false,
+    isInitiator: false,
+    peerCreated: false
+  });
 
-  const { currentUser, peerUser } = getParticipantInfo('student');
+  // Track if user has joined before
+  const hasJoinedRef = useRef(false);
+  
+  const { currentUser, peerUser } = getParticipantInfo(user?.role);
 
+  // Effect for setting up media devices
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setCallAccepted(true);
-    }, 2000);
-
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((currentStream) => {
-        setStream(currentStream);
-        if (myVideo.current) {
-          myVideo.current.srcObject = currentStream;
+    const setupMedia = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Failed to get media devices.', err);
+        toast({ variant: 'destructive', title: "Device Error", description: "Could not access camera or microphone." });
+        setCallStatus('disconnected');
+      }
+    };
+    setupMedia();
+
+    return () => {
+      localStream?.getTracks().forEach(track => track.stop());
+    };
+  }, [toast]);
+
+  // Deterministic initiator selection based on user ID and current timestamp
+  const isInitiator = useCallback(() => {
+    if (!user?.uid || !sessionId) return false;
+    // Use user ID comparison for consistency, but reset on rejoin
+    return user.uid < sessionId;
+  }, [user?.uid, sessionId]);
+
+  // Create peer connection
+  const createPeer = useCallback((initiator: boolean, stream: MediaStream) => {
+    console.log(`Creating peer connection. Initiator: ${initiator}`);
+    
+    const peer = new Peer({
+      initiator,
+      trickle: false,
+      stream,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      }
+    });
+
+    peer.on('signal', async (signalData) => {
+      console.log('Generated signal:', initiator ? 'offer' : 'answer');
+      try {
+        const callDocRef = doc(db, 'videoCalls', sessionId);
+        const signal = JSON.stringify(signalData);
+        
+        if (initiator) {
+          await updateDoc(callDocRef, { 
+            offer: signal, 
+            initiatorId: user?.uid,
+            offerTimestamp: Date.now()
+          });
+        } else {
+          await updateDoc(callDocRef, { 
+            answer: signal,
+            answerTimestamp: Date.now()
+          });
+        }
+      } catch (error) {
+        console.error('Failed to send signal:', error);
+        toast({ variant: 'destructive', title: "Connection Error", description: "Failed to send connection signal." });
+      }
+    });
+
+    peer.on('stream', (stream) => {
+      console.log('Received remote stream');
+      setRemoteStream(stream);
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+      setCallStatus('connected');
+    });
+
+    peer.on('connect', () => {
+      console.log('Peer connection established');
+      setCallStatus('connected');
+    });
+
+    peer.on('data', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        setMessages(prev => [...prev, message]);
+      } catch (error) {
+        console.error('Failed to parse chat message:', error);
+      }
+    });
+
+    peer.on('close', () => {
+      console.log('Peer connection closed');
+      setCallStatus('disconnected');
+      toast({ title: "Call Ended", description: "The other user has left the call." });
+      router.push(user?.role === 'student' ? '/student/dashboard' : '/counselor/dashboard');
+    });
+
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      if (!peer.destroyed) {
+        setCallStatus('disconnected');
+        toast({ variant: 'destructive', title: "Connection Error", description: "Failed to establish peer connection." });
+      }
+    });
+
+    return peer;
+  }, [sessionId, user?.uid, user?.role, toast, router]);
+
+  // Main WebRTC connection effect
+  useEffect(() => {
+    if (!localStream || !user?.uid || !sessionId) return;
+
+    setCallStatus('connecting');
+    const callDocRef = doc(db, 'videoCalls', sessionId);
+    const state = connectionStateRef.current;
+    
+    // Reset state for new connection
+    state.hasProcessedOffer = false;
+    state.hasProcessedAnswer = false;
+    state.peerCreated = false;
+    state.isInitiator = isInitiator();
+
+    console.log(`Starting connection setup. User: ${user.uid}, Is initiator: ${state.isInitiator}`);
+
+    // Clear old connection data and mark user as active
+    const initializeConnection = async () => {
+      try {
+        const currentTime = Date.now();
+        const updateData: any = {
+          [`participants.${user.uid}`]: {
+            name: currentUser.name,
+            role: user.role,
+            joinedAt: currentTime,
+            isActive: true
+          },
+          lastActivity: currentTime
+        };
+
+        // If this is a fresh start or rejoin, clear old signals
+        if (!hasJoinedRef.current) {
+          updateData.offer = null;
+          updateData.answer = null;
+          updateData.initiatorId = null;
+          hasJoinedRef.current = true;
+        }
+
+        await updateDoc(callDocRef, updateData);
+      } catch (error) {
+        console.error('Failed to initialize connection:', error);
+      }
+    };
+
+    initializeConnection();
+
+    const unsubscribe = onSnapshot(callDocRef, async (snapshot) => {
+      const data = snapshot.data();
+      if (!data) {
+        console.error('Call document does not exist');
+        toast({ variant: 'destructive', title: "Call Error", description: "This call session does not exist." });
+        setCallStatus('disconnected');
+        return;
+      }
+
+      // Check if other user is active
+      const participants = data.participants || {};
+      const otherUsers = Object.keys(participants).filter(uid => uid !== user.uid);
+      const hasActiveOtherUser = otherUsers.some(uid => participants[uid]?.isActive);
+
+      console.log('Firestore update received:', { 
+        hasOffer: !!data.offer, 
+        hasAnswer: !!data.answer,
+        peerCreated: state.peerCreated,
+        hasActiveOtherUser,
+        participants: Object.keys(participants)
       });
-      
-    return () => clearTimeout(timer);
-  }, []);
+
+      // Only proceed if there's another active user
+      if (!hasActiveOtherUser) {
+        console.log('Waiting for other user to join...');
+        return;
+      }
+
+      // Create peer if not already created
+      if (!state.peerCreated && !peerRef.current) {
+        // Determine initiator based on who joined first or fallback to ID comparison
+        const userJoinTime = participants[user.uid]?.joinedAt || Date.now();
+        const otherUserJoinTimes = otherUsers.map(uid => participants[uid]?.joinedAt || Date.now());
+        const earliestOtherJoinTime = Math.min(...otherUserJoinTimes);
+        
+        // If user joined first, they become initiator, otherwise use ID comparison
+        const shouldBeInitiator = userJoinTime < earliestOtherJoinTime || 
+                                 (userJoinTime === earliestOtherJoinTime && user.uid < otherUsers[0]);
+        
+        state.isInitiator = shouldBeInitiator;
+        state.peerCreated = true;
+        peerRef.current = createPeer(state.isInitiator, localStream);
+        
+        console.log(`Peer created. Initiator: ${state.isInitiator}, User join time: ${userJoinTime}, Other join time: ${earliestOtherJoinTime}`);
+      }
+
+      // Handle incoming offer (for non-initiators)
+      if (!state.isInitiator && data.offer && !state.hasProcessedOffer && peerRef.current) {
+        console.log('Processing incoming offer');
+        state.hasProcessedOffer = true;
+        try {
+          if (!peerRef.current.destroyed) {
+            peerRef.current.signal(JSON.parse(data.offer));
+          }
+        } catch (error) {
+          console.error('Failed to process offer:', error);
+          toast({ variant: 'destructive', title: "Connection Error", description: "Failed to process connection offer." });
+        }
+      }
+
+      // Handle incoming answer (for initiators)
+      if (state.isInitiator && data.answer && !state.hasProcessedAnswer && peerRef.current) {
+        console.log('Processing incoming answer');
+        state.hasProcessedAnswer = true;
+        try {
+          if (!peerRef.current.destroyed) {
+            peerRef.current.signal(JSON.parse(data.answer));
+          }
+        } catch (error) {
+          console.error('Failed to process answer:', error);
+          toast({ variant: 'destructive', title: "Connection Error", description: "Failed to process connection answer." });
+        }
+      }
+
+    }, (error) => {
+      console.error("Firestore snapshot error:", error);
+      toast({ variant: 'destructive', title: "Connection Error", description: "Failed to connect to the signaling server." });
+      setCallStatus('disconnected');
+    });
+
+    return () => {
+      console.log('Cleaning up WebRTC connection');
+      unsubscribe();
+      if (peerRef.current && !peerRef.current.destroyed) {
+        peerRef.current.destroy();
+      }
+      peerRef.current = null;
+      // Reset state
+      connectionStateRef.current = {
+        hasProcessedOffer: false,
+        hasProcessedAnswer: false,
+        isInitiator: false,
+        peerCreated: false
+      };
+    };
+  }, [localStream, user?.uid, sessionId, isInitiator, createPeer, toast, currentUser.name, user?.role]);
 
   const toggleMute = () => {
-    if (stream) {
-      stream.getAudioTracks()[0].enabled = !stream.getAudioTracks()[0].enabled;
-      setIsMuted(!isMuted);
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => track.enabled = !track.enabled);
+      setIsMuted(prev => !prev);
     }
   };
 
   const toggleVideo = () => {
-    if (stream) {
-      stream.getVideoTracks()[0].enabled = !stream.getVideoTracks()[0].enabled;
-      setIsVideoOff(!isVideoOff);
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => track.enabled = !track.enabled);
+      setIsVideoOff(prev => !prev);
     }
   };
 
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const now = new Date();
-      const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const message = { sender: 'You', text: newMessage.trim(), timestamp };
-      setMessages([...messages, message]);
-      setNewMessage('');
+    if (newMessage.trim() && peerRef.current?.connected) {
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const message = { sender: currentUser.name, text: newMessage.trim(), timestamp };
+      try {
+        peerRef.current.send(JSON.stringify(message));
+        setMessages(prev => [...prev, message]);
+        setNewMessage('');
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        toast({ variant: 'destructive', title: "Chat Error", description: "Failed to send message." });
+      }
     }
   };
 
-  const leaveCall = () => {
-    setCallAccepted(false);
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+  const leaveCall = useCallback(async () => {
+    console.log('Leaving call');
+    
+    // Mark user as inactive in Firestore
+    try {
+      const callDocRef = doc(db, 'videoCalls', sessionId);
+      await updateDoc(callDocRef, {
+        [`participants.${user?.uid}.isActive`]: false,
+        [`participants.${user?.uid}.leftAt`]: Date.now()
+      });
+    } catch (error) {
+      console.warn('Failed to update leave status:', error);
     }
-  };
+    
+    // Destroy peer connection
+    if (peerRef.current && !peerRef.current.destroyed) {
+      peerRef.current.destroy();
+    }
+    peerRef.current = null;
+    
+    // Stop local media tracks
+    localStream?.getTracks().forEach(track => track.stop());
+    
+    // Reset join tracking so they can rejoin
+    hasJoinedRef.current = false;
+    
+    setCallStatus('disconnected');
+    router.push(user?.role === 'student' ? '/student/dashboard' : '/counselor/dashboard');
+  }, [localStream, sessionId, user?.uid, user?.role, router]);
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen();
       setIsFullScreen(true);
-    } else {
-      if (document.exitFullscreen) {
+    } else if (document.exitFullscreen) {
         document.exitFullscreen();
         setIsFullScreen(false);
-      }
     }
   };
 
@@ -131,21 +412,15 @@ export default function ZoomVideoCallInterface() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className={cn("w-3 h-3 rounded-full", {
-              'bg-green-500': connectionQuality === 'excellent',
-              'bg-yellow-500': connectionQuality === 'good',
-              'bg-red-500': connectionQuality === 'poor'
+              'bg-green-500': callStatus === 'connected',
+              'bg-yellow-500 animate-pulse': callStatus === 'connecting',
+              'bg-red-500': callStatus === 'disconnected'
             })}></div>
             <span className="text-sm text-gray-300">
-              {connectionQuality === 'excellent' ? 'Excellent connection' : 
-               connectionQuality === 'good' ? 'Good connection' : 'Poor connection'}
+              {callStatus === 'connected' ? 'Connected' : 
+               callStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
             </span>
           </div>
-          {recordingStatus && (
-            <div className="flex items-center gap-2 bg-red-600/20 text-red-400 px-3 py-1 rounded-full">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="text-sm">Recording</span>
-            </div>
-          )}
         </div>
         
         <div className="text-center">
@@ -164,21 +439,19 @@ export default function ZoomVideoCallInterface() {
       {/* Main Content Area */}
       <div className="flex-1 flex relative">
         {/* Video Area */}
-        <div className={cn("flex-1 relative bg-black", {
+        <div className={cn("flex-1 relative bg-black transition-all duration-300", {
           "mr-80": showChat,
-          "mr-64": showParticipants && !showChat
         })}>
           {/* Speaker View */}
           <div className="absolute inset-0">
-            {callAccepted ? (
+            {callStatus === 'connected' && remoteStream ? (
               <div className="relative h-full w-full">
                 <video 
                   playsInline 
-                  ref={userVideo} 
+                  ref={remoteVideoRef}
                   autoPlay 
                   className="w-full h-full object-cover"
                 />
-                {/* Speaker Overlay */}
                 <div className="absolute bottom-4 left-4">
                   <div className="bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
                     <Avatar className="h-8 w-8">
@@ -194,29 +467,19 @@ export default function ZoomVideoCallInterface() {
                     <Volume2 className="h-4 w-4 text-green-400" />
                   </div>
                 </div>
-
-                {/* Pin Button */}
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white"
-                >
-                  <Pin className="h-4 w-4" />
-                </Button>
               </div>
             ) : (
               <div className="h-full flex items-center justify-center bg-gray-800">
                 <div className="text-center">
                   <div className="animate-pulse mb-4">
-                    <Avatar className="h-32 w-32 mx-auto border-4 border-blue-500">
-                      <AvatarImage src={peerUser.avatarUrl} alt={peerUser.name} />
-                      <AvatarFallback className="text-4xl bg-gray-700">
-                        {peerUser.name.split(" ").map(n => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
+                     <Loader2 className="h-12 w-12 text-blue-500 mx-auto animate-spin" />
                   </div>
-                  <h3 className="text-xl font-medium text-white mb-2">Connecting to {peerUser.name}...</h3>
-                  <p className="text-gray-400">Please wait while we establish the connection</p>
+                  <h3 className="text-xl font-medium text-white mb-2">
+                    {callStatus === 'connecting' ? `Waiting for ${peerUser.name} to join...` : 'Call has ended'}
+                  </h3>
+                  <p className="text-gray-400">
+                    {callStatus === 'connecting' ? 'Please wait while we establish the connection' : 'You can now close this window.'}
+                  </p>
                 </div>
               </div>
             )}
@@ -227,7 +490,7 @@ export default function ZoomVideoCallInterface() {
             <video 
               playsInline 
               muted 
-              ref={myVideo} 
+              ref={localVideoRef}
               autoPlay 
               className="w-full h-full object-cover"
             />
@@ -244,7 +507,7 @@ export default function ZoomVideoCallInterface() {
             )}
             <div className="absolute bottom-1 left-1 right-1">
               <div className="bg-black/60 rounded px-2 py-1">
-                <p className="text-white text-xs font-medium truncate">You</p>
+                <p className="text-white text-xs font-medium truncate">{currentUser.name} (You)</p>
               </div>
             </div>
             {isMuted && (
@@ -275,9 +538,9 @@ export default function ZoomVideoCallInterface() {
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
                 {messages.map((msg, index) => (
-                  <div key={index} className={cn("flex flex-col", msg.sender === 'You' ? "items-end" : "items-start")}>
+                  <div key={index} className={cn("flex flex-col", msg.sender === currentUser.name ? "items-end" : "items-start")}>
                     <div className={cn("max-w-xs rounded-lg px-3 py-2 text-sm", 
-                      msg.sender === 'You' 
+                      msg.sender === currentUser.name
                         ? "bg-blue-600 text-white" 
                         : "bg-gray-100 text-gray-900"
                     )}>
@@ -301,72 +564,9 @@ export default function ZoomVideoCallInterface() {
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                 />
-                <Button size="sm" onClick={handleSendMessage} disabled={!newMessage.trim()}>
+                <Button size="sm" onClick={handleSendMessage} disabled={!newMessage.trim() || !peerRef.current?.connected}>
                   <Send className="h-4 w-4" />
                 </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Participants Panel */}
-        {showParticipants && !showChat && (
-          <div className="w-64 bg-white border-l border-gray-200 flex flex-col">
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Participants (2)</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowParticipants(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="flex-1 p-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={peerUser.avatarUrl} alt={peerUser.name} />
-                    <AvatarFallback className="bg-blue-600 text-white text-sm">
-                      {peerUser.name.split(" ").map(n => n[0]).join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{peerUser.name}</p>
-                    <p className="text-xs text-gray-500">{peerUser.role}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Mic className="h-4 w-4 text-green-600" />
-                    <Video className="h-4 w-4 text-green-600" />
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-50">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                    <AvatarFallback className="bg-gray-600 text-white text-sm">
-                      {currentUser.name.split(" ").map(n => n[0]).join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{currentUser.name} (You)</p>
-                    <p className="text-xs text-gray-500">{currentUser.role}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {isMuted ? (
-                      <MicOff className="h-4 w-4 text-red-500" />
-                    ) : (
-                      <Mic className="h-4 w-4 text-green-600" />
-                    )}
-                    {isVideoOff ? (
-                      <VideoOff className="h-4 w-4 text-red-500" />
-                    ) : (
-                      <Video className="h-4 w-4 text-green-600" />
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -383,10 +583,10 @@ export default function ZoomVideoCallInterface() {
               size="sm" 
               onClick={toggleMute}
               className="gap-2"
+              disabled={callStatus !== 'connected'}
             >
               {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               {isMuted ? "Unmute" : "Mute"}
-              <ChevronUp className="h-3 w-3" />
             </Button>
             
             <Button 
@@ -394,10 +594,10 @@ export default function ZoomVideoCallInterface() {
               size="sm" 
               onClick={toggleVideo}
               className="gap-2"
+               disabled={callStatus !== 'connected'}
             >
               {isVideoOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
               {isVideoOff ? "Start Video" : "Stop Video"}
-              <ChevronUp className="h-3 w-3" />
             </Button>
           </div>
 
@@ -406,40 +606,27 @@ export default function ZoomVideoCallInterface() {
             <Button 
               variant="secondary" 
               size="sm"
-              onClick={() => setShowParticipants(!showParticipants)}
-              className="gap-2"
-            >
-              <Users className="h-4 w-4" />
-              Participants
-            </Button>
-            
-            <Button 
-              variant="secondary" 
-              size="sm"
               onClick={() => setShowChat(!showChat)}
               className="gap-2"
+              disabled={callStatus !== 'connected'}
             >
               <MessageSquare className="h-4 w-4" />
               Chat
             </Button>
             
-            <Button variant="secondary" size="sm" className="gap-2">
+            <Button variant="secondary" size="sm" className="gap-2" disabled={callStatus !== 'connected'}>
               <Monitor className="h-4 w-4" />
               Share Screen
             </Button>
             
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary" size="sm" disabled={callStatus !== 'connected'}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </div>
 
           {/* Right Controls */}
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
-            
-            <Button 
+             <Button 
               variant="secondary" 
               size="sm" 
               onClick={toggleFullScreen}
@@ -462,3 +649,6 @@ export default function ZoomVideoCallInterface() {
     </div>
   );
 }
+
+// Replacing the old component with the new one
+export default VideoCallInterface;
